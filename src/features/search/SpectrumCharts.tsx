@@ -1,6 +1,7 @@
 import Plotly from 'plotly.js-basic-dist-min'
 import createPlotlyComponent from 'react-plotly.js/factory'
 import type { components } from '@/api/schema'
+import { getFlaggedRawPoints } from './spectrumUtils'
 
 const Plot = createPlotlyComponent(Plotly)
 
@@ -29,6 +30,10 @@ export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
   const earlier = result.earlier_epoch.channels_102
   const later = result.later_epoch?.channels_102 ?? []
   const difference = result.difference_spectrum_102
+  const earlierFlagged = getFlaggedRawPoints(result.earlier_epoch.raw_points)
+  const laterFlagged = result.later_epoch
+    ? getFlaggedRawPoints(result.later_epoch.raw_points)
+    : []
 
   const earlierHasErrors = earlier.some(
     (point) => point.flux !== null && point.flux_err !== null,
@@ -58,6 +63,18 @@ export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
           }
         : undefined,
     },
+    ...(earlierFlagged.length > 0
+      ? [{
+          x: earlierFlagged.map((point) => point.wavelength_um),
+          y: earlierFlagged.map((point) => point.flux),
+          customdata: earlierFlagged.map((point) => point.quality_flag),
+          type: 'scatter' as const,
+          mode: 'markers' as const,
+          name: 'Earlier · non-zero quality flag',
+          marker: { size: 9, color: '#f59e0b', symbol: 'x' },
+          hovertemplate: 'Wavelength %{x:.4f} μm<br>Flux %{y}<br>Quality flag %{customdata}<extra></extra>',
+        }]
+      : []),
     ...(result.later_epoch
       ? [{
           x: later.map((point) => point.wavelength_um),
@@ -78,6 +95,18 @@ export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
                 width: 2,
               }
             : undefined,
+        }]
+      : []),
+    ...(laterFlagged.length > 0
+      ? [{
+          x: laterFlagged.map((point) => point.wavelength_um),
+          y: laterFlagged.map((point) => point.flux),
+          customdata: laterFlagged.map((point) => point.quality_flag),
+          type: 'scatter' as const,
+          mode: 'markers' as const,
+          name: 'Later · non-zero quality flag',
+          marker: { size: 9, color: '#f59e0b', symbol: 'x' },
+          hovertemplate: 'Wavelength %{x:.4f} μm<br>Flux %{y}<br>Quality flag %{customdata}<extra></extra>',
         }]
       : []),
   ]
@@ -101,7 +130,7 @@ export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
         <div className="mb-2">
           <h3 className="font-semibold">Spectral comparison</h3>
           <p className="mt-1 text-xs text-observatory-muted">
-            Null channels remain gaps. No interpolation is performed.
+            Null channels remain gaps. Orange × markers identify raw points with non-zero quality_flag values; the numeric codes are displayed without interpretation. No interpolation is performed.
           </p>
         </div>
         <Plot
