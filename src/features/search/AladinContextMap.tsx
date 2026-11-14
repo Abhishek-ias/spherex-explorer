@@ -47,7 +47,7 @@ function loadAladinScript(): Promise<void> {
   if (window.A) return Promise.resolve()
   if (aladinScriptPromise) return aladinScriptPromise
 
-  aladinScriptPromise = new Promise((resolve, reject) => {
+  const scriptPromise = new Promise<void>((resolve, reject) => {
     const existing = document.getElementById('aladin-lite-v3-script') as HTMLScriptElement | null
     const script = existing ?? document.createElement('script')
 
@@ -68,10 +68,12 @@ function loadAladinScript(): Promise<void> {
     }
   }).catch((error: unknown) => {
     aladinScriptPromise = null
+    document.getElementById('aladin-lite-v3-script')?.remove()
     throw error
   })
 
-  return aladinScriptPromise
+  aladinScriptPromise = scriptPromise
+  return scriptPromise
 }
 
 export default function AladinContextMap({ ra, dec, fovArcmin }: Props) {
