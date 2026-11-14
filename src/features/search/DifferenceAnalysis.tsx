@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useDifferenceImage } from '@/api/hooks/useDifferenceImage'
 import type { components } from '@/api/schema'
+import SynchronizedDifferenceViewer from './SynchronizedDifferenceViewer'
 
 type ObservationFrame = components['schemas']['ObservationFrame']
 type Props = {
@@ -16,6 +18,7 @@ export default function DifferenceAnalysis({
   secondFrame,
 }: Props) {
   const difference = useDifferenceImage()
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
 
   if (!firstFrame || !secondFrame) {
     return (
@@ -37,7 +40,7 @@ export default function DifferenceAnalysis({
     earlier.obs_id !== later.obs_id
 
   return (
-    <section className="space-y-5 rounded-2xl border border-observatory-border bg-observatory-surface p-5 sm:p-6">
+    <section id="difference-analysis" className="space-y-5 rounded-2xl border border-observatory-border bg-observatory-surface p-5 sm:p-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-observatory-cyan">
           Phase 6 · Candidate analysis
@@ -102,24 +105,25 @@ export default function DifferenceAnalysis({
             </span>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-observatory-border bg-[#050a16]">
-            <div className="border-b border-observatory-border px-4 py-3 text-sm font-semibold">
-              Difference image
-            </div>
-            <div className="flex min-h-64 items-center justify-center p-3">
-              <img
-                src={difference.data.difference_png_url}
-                alt="Backend-generated SPHEREx difference image"
-                className="max-h-[520px] max-w-full object-contain"
-                onError={(event) => {
-                  event.currentTarget.alt = 'Difference image could not be loaded'
-                  event.currentTarget.style.display = 'none'
-                }}
-              />
-            </div>
-            <p className="border-t border-observatory-border px-4 py-2 text-xs text-observatory-muted">
-              Positive residual: later brighter · Negative residual: earlier brighter
-            </p>
+          <SynchronizedDifferenceViewer
+            earlierUrl={earlier.preview_png_url}
+            laterUrl={later.preview_png_url}
+            differenceUrl={difference.data.difference_png_url}
+            shapeNyNx={difference.data.shape_ny_nx}
+            selectedCandidate={difference.data.candidates.find(
+              (candidate) => candidate.candidate_id === selectedCandidateId,
+            )}
+          />
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-observatory-border p-3 text-xs">
+            <span className="text-observatory-muted">Residual direction:</span>
+            <span className="text-emerald-300">Positive = later brighter</span>
+            <span className="text-blue-300">Negative = earlier brighter</span>
+            <span className="text-observatory-muted">Near zero = little change</span>
+          </div>
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs leading-5 text-observatory-muted">
+            The current difference response does not include colour-scale limits (vmin/vmax),
+            a colour-map name, or a significance-map URL. Those controls are unavailable until
+            the backend returns those fields.
           </div>
 
           {difference.data.candidates.length === 0 ? (
@@ -130,9 +134,16 @@ export default function DifferenceAnalysis({
             <div className="space-y-3">
               <h3 className="font-semibold">Potential detections</h3>
               {difference.data.candidates.map((candidate) => (
-                <article
+                <button
+                  type="button"
                   key={candidate.candidate_id}
-                  className="rounded-xl border border-observatory-border bg-[#080f1c] p-4"
+                  aria-pressed={candidate.candidate_id === selectedCandidateId}
+                  onClick={() => setSelectedCandidateId(candidate.candidate_id)}
+                  className={`block w-full rounded-xl border bg-[#080f1c] p-4 text-left transition ${
+                    candidate.candidate_id === selectedCandidateId
+                      ? 'border-amber-400 bg-amber-500/10'
+                      : 'border-observatory-border hover:border-observatory-cyan'
+                  }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="font-mono text-sm font-semibold">
@@ -178,7 +189,10 @@ export default function DifferenceAnalysis({
                       candidate.match.apparent_motion_arcsec_yr !== undefined &&
                       ` Apparent motion: ${candidate.match.apparent_motion_arcsec_yr} arcsec/year.`}
                   </p>
-                </article>
+                  <p className="mt-3 text-[11px] text-observatory-muted">
+                    Difference-image pixel: ({candidate.png_x.toFixed(1)}, {candidate.png_y.toFixed(1)})
+                  </p>
+                </button>
               ))}
             </div>
           )}
