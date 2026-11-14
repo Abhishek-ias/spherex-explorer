@@ -26,14 +26,18 @@ describe('parseRightAscension', () => {
     })
   })
 
-  it('accepts the 24-hour boundary', () => {
+  it('rejects the exclusive 24-hour / 360-degree upper boundary', () => {
     expect(parseRightAscension('24:00:00')).toEqual({
-      ok: true,
-      value: 360,
+      ok: false,
+      error: 'out_of_range',
+    })
+    expect(parseRightAscension('360')).toEqual({
+      ok: false,
+      error: 'out_of_range',
     })
   })
 
-  it.each(['-1', '361', '24:00:01', '25:00:00'])(
+  it.each(['-1', '360', '361', '24:00:01', '25:00:00'])(
     'rejects out-of-range RA: %s',
     (input) => {
       expect(parseRightAscension(input)).toEqual({
