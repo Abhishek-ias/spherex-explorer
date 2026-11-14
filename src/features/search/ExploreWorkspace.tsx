@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { z } from 'zod'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useSearchObservations } from '@/api/hooks/useSearchObservations'
 import { useIdentifyObject } from '@/api/hooks/useIdentifyObject'
 import { useCatalogOverlays } from '@/api/hooks/useCatalogOverlays'
@@ -9,18 +8,12 @@ import SpectrumAnalysis from './SpectrumAnalysis'
 import DifferenceAnalysis from './DifferenceAnalysis'
 import TrackingIsolation from './TrackingIsolation'
 import ShareControls from './ShareControls'
-
-const paramsSchema = z.object({
-  ra: z.string().min(1).transform(Number).pipe(z.number().finite().min(0).max(360)),
-  dec: z.string().min(1).transform(Number).pipe(z.number().finite().min(-90).max(90)),
-  fov: z.string().min(1).transform(Number).pipe(
-    z.number().refine((value) => [5, 15, 30, 60].includes(value)),
-  ),
-})
+import ObservationTimeline from './ObservationTimeline'
+import { searchParamsSchema } from './searchParams'
 
 export default function ExploreWorkspace() {
   const [params, setParams] = useSearchParams()
-  const parsed = paramsSchema.safeParse({
+  const parsed = searchParamsSchema.safeParse({
     ra: params.get('ra'),
     dec: params.get('dec'),
     fov: params.get('fov'),
@@ -40,10 +33,18 @@ export default function ExploreWorkspace() {
   const [gaiaVisible, setGaiaVisible] = useState(() => params.get('layers')?.split(',').includes('gaia') ?? false)
   const [wiseVisible, setWiseVisible] = useState(() => params.get('layers')?.split(',').includes('wise') ?? false)
 
-  const frames = useMemo(
-    () => data?.epochs.flatMap((epoch) => epoch.observations)
-      .slice().sort((a, b) => a.mjd - b.mjd) ?? [],
+  const timelineEntries = useMemo(
+    () => data?.epochs.flatMap((epoch) =>
+      epoch.observations.map((frame) => ({
+        frame,
+        epochId: epoch.epoch_id,
+      })),
+    ).sort((a, b) => a.frame.mjd - b.frame.mjd) ?? [],
     [data],
+  )
+  const frames = useMemo(
+    () => timelineEntries.map(({ frame }) => frame),
+    [timelineEntries],
   )
 
   const [selectedId, setSelectedId] = useState(() => params.get('frame') ?? '')
@@ -59,6 +60,12 @@ export default function ExploreWorkspace() {
   const compareFrame = comparableFrames.find((frame) => frame.obs_id === compareId) ?? comparableFrames[0]
   const selectedFrameId = selectedFrame?.obs_id
   const compareFrameId = compareFrame?.obs_id
+
+  const selectFrame = useCallback((observationId: string) => {
+    identify.reset()
+    setIdentifyError('')
+    setSelectedId(observationId)
+  }, [identify.reset])
 
   useEffect(() => {
     const next = new URLSearchParams(params)
@@ -153,7 +160,35 @@ export default function ExploreWorkspace() {
     })
   }
 
-  if (!parsed.success) return <Navigate to="/" replace />
+  if (!parsed.success) {
+    return (
+      <section
+        role="alert"
+        className="max-w-2xl rounded-xl border border-amber-500/30 bg-observatory-surface p-7"
+      >
+        <p className="font-mono text-xs uppercase tracking-widest text-amber-300">
+          Invalid shared search
+        </p>
+        <h1 className="mt-3 font-heading text-2xl font-semibold">
+          This search link contains invalid coordinates or settings
+        </h1>
+        <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-observatory-muted">
+          {parsed.error.issues.map((issue, index) => (
+            <li key={index}>
+              {issue.path.length ? `${String(issue.path[0]).toUpperCase()}: ` : ''}
+              {issue.message}
+            </li>
+          ))}
+        </ul>
+        <Link
+          to="/"
+          className="mt-6 inline-flex rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"
+        >
+          Return to coordinate search
+        </Link>
+      </section>
+    )
+  }
 
   if (isPending) {
     return (
@@ -219,30 +254,11 @@ export default function ExploreWorkspace() {
             overlayMarkers={overlayMarkers}
           />
 
-          <section className="rounded-xl border border-observatory-border bg-observatory-surface p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-semibold">Observation timeline</h2>
-              <span className="text-xs text-observatory-muted">{frames.length} frames</span>
-            </div>
-            <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
-              {frames.map((frame, index) => (
-                <button key={frame.obs_id} onClick={() => {
-                    identify.reset()
-                    setIdentifyError('')
-                    setSelectedId(frame.obs_id)
-                  }}
-                  className={`min-w-36 rounded-lg border p-3 text-left transition ${
-                    frame.obs_id === selectedFrame.obs_id
-                      ? 'border-violet-400 bg-violet-500/15'
-                      : 'border-observatory-border hover:border-observatory-cyan'
-                  }`}>
-                  <p className="text-xs text-observatory-muted">Frame {index + 1}</p>
-                  <p className="mt-1 text-sm font-semibold">{new Date(frame.date_iso).toLocaleDateString()}</p>
-                  <p className="mt-1 font-mono text-[10px] text-observatory-muted">{frame.detector}</p>
-                </button>
-              ))}
-            </div>
-          </section>
+          <ObservationTimeline
+            entries={timelineEntries}
+            selectedId={selectedFrame.obs_id}
+            onSelect={selectFrame}
+          />
 
           <SpectrumAnalysis
             ra={parsed.data.ra}

@@ -36,7 +36,15 @@ export default function SkyViewer({
   const view = useRef<ViewTransform>({ zoom: 1, x: 0, y: 0 })
   const redraw = useRef<() => void>(() => {})
   const drag = useRef({ active: false, moved: false, x: 0, y: 0 })
+  const imageSize = useRef({ width: 0, height: 0 })
+  const clickTimer = useRef<number | null>(null)
   const [imageError, setImageError] = useState(false)
+
+  useEffect(() => () => {
+    if (clickTimer.current !== null) {
+      window.clearTimeout(clickTimer.current)
+    }
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -124,6 +132,10 @@ export default function SkyViewer({
       image = new Image()
       image.onload = () => {
         loaded = true
+        imageSize.current = {
+          width: image?.naturalWidth ?? 0,
+          height: image?.naturalHeight ?? 0,
+        }
         setImageError(false)
         draw()
       }
@@ -190,15 +202,57 @@ export default function SkyViewer({
     redraw.current()
   }
 
+  function identifyAtPointer(event: MouseEvent<HTMLCanvasElement>) {
+    const canvas = event.currentTarget
+    const rect = canvas.getBoundingClientRect()
+    const { width: imageWidth, height: imageHeight } = imageSize.current
+    if (!imageWidth || !imageHeight) return
+
+    const fit = Math.min(rect.width / imageWidth, rect.height / imageHeight)
+    const scale = fit * view.current.zoom
+    const drawWidth = imageWidth * scale
+    const drawHeight = imageHeight * scale
+    const drawLeft = (rect.width - drawWidth) / 2 + view.current.x
+    const drawTop = (rect.height - drawHeight) / 2 + view.current.y
+    const clickX = event.clientX - rect.left - drawLeft
+    const clickY = event.clientY - rect.top - drawTop
+
+    if (
+      clickX < 0 || clickY < 0 ||
+      clickX > drawWidth || clickY > drawHeight
+    ) return
+
+    onIdentify?.(clickX, clickY, drawWidth, drawHeight)
+  }
+
   function handleClick(event: MouseEvent<HTMLCanvasElement>) {
     if (drag.current.moved || !imageUrl || imageError || !onIdentify) return
+    if (clickTimer.current !== null) {
+      window.clearTimeout(clickTimer.current)
+    }
+    clickTimer.current = window.setTimeout(() => {
+      clickTimer.current = null
+      identifyAtPointer(event)
+    }, 240)
+  }
+
+  function handleDoubleClick(event: MouseEvent<HTMLCanvasElement>) {
+    event.preventDefault()
+    if (clickTimer.current !== null) {
+      window.clearTimeout(clickTimer.current)
+      clickTimer.current = null
+    }
+
     const rect = event.currentTarget.getBoundingClientRect()
-    onIdentify(
-      event.clientX - rect.left,
-      event.clientY - rect.top,
-      rect.width,
-      rect.height,
-    )
+    const mx = event.clientX - rect.left - rect.width / 2
+    const my = event.clientY - rect.top - rect.height / 2
+    const oldZoom = view.current.zoom
+    const nextZoom = Math.max(0.5, Math.min(8, oldZoom * 1.6))
+    const ratio = nextZoom / oldZoom
+    view.current.x = mx - (mx - view.current.x) * ratio
+    view.current.y = my - (my - view.current.y) * ratio
+    view.current.zoom = nextZoom
+    redraw.current()
   }
 
   return (
@@ -228,6 +282,7 @@ export default function SkyViewer({
           onPointerUp={() => { drag.current.active = false }}
           onPointerCancel={() => { drag.current.active = false }}
           onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
           className="h-[420px] w-full touch-none cursor-crosshair"
         />
       ) : (
@@ -242,7 +297,7 @@ export default function SkyViewer({
         <span><span className="mr-1 text-cyan-400">⊕</span> Target</span>
         <span><span className="mr-1 text-blue-400">○</span> Gaia DR3</span>
         <span><span className="mr-1 text-amber-400">○</span> WISE</span>
-        <span>Drag · Scroll · Click to identify</span>
+        <span>Drag · Scroll to zoom · Double-click to zoom · Click to identify</span>
       </div>
     </div>
   )
