@@ -202,3 +202,46 @@ a {
     @apply font-sans;
   }
 }
+
+/* Subtle animated star field for the landing hero. */
+.starfield-glow {
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.starfield-glow::before,
+.starfield-glow::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 10% 18%, rgba(255,255,255,.75) 98%, transparent),
+    radial-gradient(1px 1px at 24% 62%, rgba(103,232,249,.7) 98%, transparent),
+    radial-gradient(1px 1px at 48% 32%, rgba(255,255,255,.6) 98%, transparent),
+    radial-gradient(1px 1px at 71% 21%, rgba(196,181,253,.75) 98%, transparent),
+    radial-gradient(1px 1px at 87% 70%, rgba(255,255,255,.65) 98%, transparent),
+    radial-gradient(1px 1px at 61% 83%, rgba(103,232,249,.55) 98%, transparent);
+  background-size: 420px 300px;
+  opacity: .34;
+  animation: observatory-star-drift 48s linear infinite;
+}
+
+.starfield-glow::after {
+  background-size: 620px 440px;
+  opacity: .22;
+  animation-duration: 76s;
+  animation-direction: reverse;
+}
+
+@keyframes observatory-star-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-36px, 24px, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starfield-glow::before,
+  .starfield-glow::after {
+    animation: none;
+  }
+}

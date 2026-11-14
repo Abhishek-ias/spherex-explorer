@@ -87,6 +87,24 @@ export default function ExploreWorkspace() {
   }, [])
 
   useEffect(() => {
+    function handleLayerShortcut(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey) return
+      const target = event.target
+      if (target instanceof HTMLElement && (
+        target.isContentEditable ||
+        target.closest('input, textarea, select, button, [contenteditable="true"]')
+      )) return
+
+      const key = event.key.toLowerCase()
+      if (key === 'g') setGaiaVisible((visible) => !visible)
+      if (key === 'w') setWiseVisible((visible) => !visible)
+    }
+
+    window.addEventListener('keydown', handleLayerShortcut)
+    return () => window.removeEventListener('keydown', handleLayerShortcut)
+  }, [])
+
+  useEffect(() => {
     const next = new URLSearchParams(params)
 
     if (selectedFrameId) next.set('frame', selectedFrameId)

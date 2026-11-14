@@ -69,8 +69,27 @@ export default function ObservationTimeline({
   const nextDisabled =
     selectedIndex < 0 || selectedIndex >= visibleEntries.length - 1
 
+  function handleTimelineKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.target !== event.currentTarget) return
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      selectIndex(Math.max(0, selectedIndex - 1))
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      selectIndex(Math.min(visibleEntries.length - 1, selectedIndex + 1))
+    } else if (event.key === ' ') {
+      event.preventDefault()
+      setPlaying((value) => !value)
+    }
+  }
+
   return (
-    <section className="rounded-xl border border-observatory-border bg-observatory-surface p-5">
+    <section
+      tabIndex={0}
+      onKeyDown={handleTimelineKeyDown}
+      aria-label="Observation timeline. Focus this region, then use left and right arrows to step through frames or Space to play and pause."
+      className="rounded-xl border border-observatory-border bg-observatory-surface p-5 focus-visible:outline-offset-4"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-semibold">Observation timeline</h2>

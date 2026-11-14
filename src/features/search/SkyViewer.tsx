@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { PointerEvent, WheelEvent, MouseEvent } from 'react'
+import type { PointerEvent, WheelEvent, MouseEvent, KeyboardEvent } from 'react'
 import type { components } from '@/api/schema'
 
 type PixelPoint = components['schemas']['PixelPoint']
@@ -199,6 +199,20 @@ export default function SkyViewer({
     redraw.current()
   }
 
+  function handleCanvasKeyDown(event: KeyboardEvent<HTMLCanvasElement>) {
+    if (event.key === '+' || event.key === '=') {
+      event.preventDefault()
+      zoomBy(1.25)
+    } else if (event.key === '-') {
+      event.preventDefault()
+      zoomBy(1 / 1.25)
+    } else if (event.key === '0') {
+      event.preventDefault()
+      view.current = { zoom: 1, x: 0, y: 0 }
+      redraw.current()
+    }
+  }
+
   function handleWheel(event: WheelEvent<HTMLCanvasElement>) {
     event.preventDefault()
     const rect = event.currentTarget.getBoundingClientRect()
@@ -312,6 +326,9 @@ export default function SkyViewer({
           ref={canvasRef}
           role="img"
           aria-label={`Observation preview: ${title}. Drag to pan, scroll to zoom, click to identify.`}
+          tabIndex={0}
+          aria-keyshortcuts="+ - 0"
+          onKeyDown={handleCanvasKeyDown}
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
