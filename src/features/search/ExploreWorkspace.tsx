@@ -9,6 +9,7 @@ import DifferenceAnalysis from './DifferenceAnalysis'
 import TrackingIsolation from './TrackingIsolation'
 import ShareControls from './ShareControls'
 import AladinContextMap from './AladinContextMap'
+import WebMExport from './WebMExport'
 import ObservationTimeline from './ObservationTimeline'
 import { searchParamsSchema } from './searchParams'
 
@@ -328,6 +329,14 @@ export default function ExploreWorkspace() {
             entries={timelineEntries}
             selectedId={selectedFrame.obs_id}
             onSelect={selectFrame}
+          />
+
+          <WebMExport
+            frames={frames.map((frame) => ({
+              obsId: frame.obs_id,
+              dateIso: frame.date_iso,
+              imageUrl: frame.preview_png_url,
+            }))}
           />
 
           <SpectrumAnalysis
