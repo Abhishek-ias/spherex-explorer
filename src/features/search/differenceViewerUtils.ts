@@ -15,3 +15,9 @@ export function getDifferenceImageAspectRatio(shapeNyNx: number[]): number {
 
   return width / height
 }
+
+export type BlinkEpoch = 'earlier' | 'later'
+
+export function nextBlinkEpoch(current: BlinkEpoch): BlinkEpoch {
+  return current === 'earlier' ? 'later' : 'earlier'
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   clampDifferenceZoom,
   getDifferenceImageAspectRatio,
+  nextBlinkEpoch,
 } from './differenceViewerUtils'
 
 describe('difference viewer helpers', () => {
@@ -14,5 +15,12 @@ describe('difference viewer helpers', () => {
   it('derives display aspect ratio from backend image shape [height, width]', () => {
     expect(getDifferenceImageAspectRatio([200, 300])).toBe(1.5)
     expect(getDifferenceImageAspectRatio([0, 100])).toBe(1)
+  })
+})
+
+describe('difference blink comparison', () => {
+  it('alternates between earlier and later epochs', () => {
+    expect(nextBlinkEpoch('earlier')).toBe('later')
+    expect(nextBlinkEpoch('later')).toBe('earlier')
   })
 })
