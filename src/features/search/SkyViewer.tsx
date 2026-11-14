@@ -16,6 +16,8 @@ type Props = {
   targetPx?: PixelPoint
   title: string
   overlayMarkers?: OverlayMarker[]
+  pendingSelection?: { x: number; y: number }
+  selectedObject?: PixelPoint
   onIdentify?: (x: number, y: number, width: number, height: number) => void
 }
 
@@ -30,6 +32,8 @@ export default function SkyViewer({
   targetPx,
   title,
   overlayMarkers = [],
+  pendingSelection,
+  selectedObject,
   onIdentify,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -84,6 +88,34 @@ export default function SkyViewer({
       const y = (height - drawHeight) / 2 + view.current.y
 
       context.drawImage(image, x, y, drawWidth, drawHeight)
+
+      if (selectedObject) {
+        const sx = x + selectedObject.x * scale
+        const sy = y + selectedObject.y * scale
+        context.beginPath()
+        context.arc(sx, sy, 10, 0, Math.PI * 2)
+        context.strokeStyle = '#f472b6'
+        context.lineWidth = 2
+        context.stroke()
+        context.beginPath()
+        context.moveTo(sx - 14, sy)
+        context.lineTo(sx + 14, sy)
+        context.moveTo(sx, sy - 14)
+        context.lineTo(sx, sy + 14)
+        context.stroke()
+      }
+
+      if (pendingSelection) {
+        const px = x + pendingSelection.x * drawWidth
+        const py = y + pendingSelection.y * drawHeight
+        context.beginPath()
+        context.arc(px, py, 11, 0, Math.PI * 2)
+        context.setLineDash([4, 3])
+        context.strokeStyle = '#fbbf24'
+        context.lineWidth = 2
+        context.stroke()
+        context.setLineDash([])
+      }
 
       if (targetPx) {
         const tx = x + targetPx.x * scale
@@ -156,7 +188,7 @@ export default function SkyViewer({
         image.onerror = null
       }
     }
-  }, [imageUrl, targetPx, imageError, overlayMarkers])
+  }, [imageUrl, targetPx, imageError, overlayMarkers, pendingSelection, selectedObject])
 
   function zoomBy(factor: number) {
     view.current.zoom = Math.max(0.5, Math.min(8, view.current.zoom * factor))
@@ -295,6 +327,8 @@ export default function SkyViewer({
 
       <div className="flex flex-wrap gap-4 border-t border-observatory-border px-4 py-2 text-xs text-observatory-muted">
         <span><span className="mr-1 text-cyan-400">⊕</span> Target</span>
+        <span><span className="mr-1 text-amber-300">◉</span> Pending selection</span>
+        <span><span className="mr-1 text-pink-400">⊕</span> Identified source</span>
         <span><span className="mr-1 text-blue-400">○</span> Gaia DR3</span>
         <span><span className="mr-1 text-amber-400">○</span> WISE</span>
         <span>Drag · Scroll to zoom · Double-click to zoom · Click to identify</span>

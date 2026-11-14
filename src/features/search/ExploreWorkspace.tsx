@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useSearchObservations } from '@/api/hooks/useSearchObservations'
 import { useIdentifyObject } from '@/api/hooks/useIdentifyObject'
@@ -28,8 +28,10 @@ export default function ExploreWorkspace() {
 
   const identify = useIdentifyObject()
   const overlays = useCatalogOverlays()
+  const identifyAbortRef = useRef<AbortController | null>(null)
 
   const [identifyError, setIdentifyError] = useState('')
+  const [pendingSelection, setPendingSelection] = useState<{ x: number; y: number } | null>(null)
   const [gaiaVisible, setGaiaVisible] = useState(() => params.get('layers')?.split(',').includes('gaia') ?? false)
   const [wiseVisible, setWiseVisible] = useState(() => params.get('layers')?.split(',').includes('wise') ?? false)
 
@@ -62,10 +64,17 @@ export default function ExploreWorkspace() {
   const compareFrameId = compareFrame?.obs_id
 
   const selectFrame = useCallback((observationId: string) => {
+    identifyAbortRef.current?.abort()
+    identifyAbortRef.current = null
+    setPendingSelection(null)
     identify.reset()
     setIdentifyError('')
     setSelectedId(observationId)
   }, [identify.reset])
+
+  useEffect(() => () => {
+    identifyAbortRef.current?.abort()
+  }, [])
 
   useEffect(() => {
     const next = new URLSearchParams(params)
@@ -136,13 +145,31 @@ export default function ExploreWorkspace() {
       return
     }
 
+    identifyAbortRef.current?.abort()
+    identify.reset()
+    const controller = new AbortController()
+    identifyAbortRef.current = controller
+    setPendingSelection({
+      x: Math.min(1, Math.max(0, x / width)),
+      y: Math.min(1, Math.max(0, y / height)),
+    })
     setIdentifyError('')
     identify.mutate({
-      cutout_fits_url: selectedFrame.cutout_fits_url,
-      click_x: x,
-      click_y: y,
-      rendered_width: width,
-      rendered_height: height,
+      request: {
+        cutout_fits_url: selectedFrame.cutout_fits_url,
+        click_x: x,
+        click_y: y,
+        rendered_width: width,
+        rendered_height: height,
+      },
+      signal: controller.signal,
+    }, {
+      onSettled: () => {
+        if (identifyAbortRef.current === controller) {
+          identifyAbortRef.current = null
+          setPendingSelection(null)
+        }
+      },
     })
   }
 
@@ -252,6 +279,8 @@ export default function ExploreWorkspace() {
             title={selectedFrame.obs_id}
             onIdentify={identifyAt}
             overlayMarkers={overlayMarkers}
+            pendingSelection={pendingSelection ?? undefined}
+            selectedObject={identify.data?.target_px}
           />
 
           <ObservationTimeline
@@ -278,7 +307,7 @@ export default function ExploreWorkspace() {
             source={identify.data}
           />
 
-          <section className="rounded-xl border border-observatory-border bg-observatory-surface p-5">
+          <section id="object-identification" className="rounded-xl border border-observatory-border bg-observatory-surface p-5">
             <h2 className="font-semibold">Object identification</h2>
             <p className="mt-1 text-xs text-observatory-muted">
               Click a source in the image to request centroiding from the backend.
@@ -290,7 +319,29 @@ export default function ExploreWorkspace() {
               </p>
             )}
             {identify.data && (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-xs font-medium ${
+                    identify.data.is_usable
+                      ? 'bg-emerald-500/10 text-emerald-300'
+                      : 'bg-amber-500/10 text-amber-300'
+                  }`}>
+                    {identify.data.is_usable ? 'Backend marked usable' : 'Backend marked not usable'}
+                  </span>
+                  <span className="rounded-full border border-observatory-border px-3 py-1 text-xs text-observatory-muted">
+                    Quality flag: {identify.data.quality_flag}
+                  </span>
+                </div>
+                <p className="text-xs text-observatory-muted">
+                  A Gaia/SIMBAD/known-object match label is not provided by the current identification response.
+                </p>
+                <nav aria-label="Selected object actions" className="flex flex-wrap gap-2">
+                  <a href="#spectrum-analysis" className="rounded-lg border border-observatory-border px-3 py-2 text-xs hover:border-observatory-cyan">Analyse spectrum</a>
+                  <a href="#difference-analysis" className="rounded-lg border border-observatory-border px-3 py-2 text-xs hover:border-observatory-cyan">Compare observations</a>
+                  <a href="#tracking-isolation" className="rounded-lg border border-observatory-border px-3 py-2 text-xs hover:border-observatory-cyan">Track & isolate</a>
+                  <a href="#catalogue-overlays" className="rounded-lg border border-observatory-border px-3 py-2 text-xs hover:border-observatory-cyan">Catalogue context</a>
+                </nav>
+                <div className="grid gap-3 sm:grid-cols-2">
                 {[
                   ['Object ID', identify.data.object_id],
                   ['RA', `${identify.data.ra_deg.toFixed(6)}ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â° (${identify.data.ra_hms})`],
@@ -308,6 +359,7 @@ export default function ExploreWorkspace() {
                     <p className="mt-1 break-all font-mono text-sm">{value}</p>
                   </div>
                 ))}
+                </div>
               </div>
             )}
           </section>
@@ -350,7 +402,7 @@ export default function ExploreWorkspace() {
             )}
           </section>
 
-          <section className="rounded-xl border border-observatory-border bg-observatory-surface p-5">
+          <section id="catalogue-overlays" className="rounded-xl border border-observatory-border bg-observatory-surface p-5">
             <h2 className="font-semibold">Catalogue overlays</h2>
             <p className="mt-2 text-xs leading-5 text-observatory-muted">
               Gaia DR3 and AllWISE source positions are supplied by the backend for each observation frame.

@@ -4,12 +4,17 @@ import type { components } from '@/api/schema'
 
 type IdentifyRequest = components['schemas']['IdentifyRequest']
 
+export type IdentifyVariables = {
+  request: IdentifyRequest
+  signal?: AbortSignal
+}
+
 export function useIdentifyObject() {
   return useMutation({
-    mutationFn: async (body: IdentifyRequest) => {
+    mutationFn: async ({ request, signal }: IdentifyVariables) => {
       const { data, error, response } = await api.POST(
         '/api/objects/identify',
-        { body },
+        { body: request, signal },
       )
 
       if (!response.ok || error || !data) {
