@@ -21,22 +21,22 @@ export default function AppLayout() {
 
           <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-6">
             <nav aria-label="Main navigation" className="flex flex-wrap items-center gap-3 sm:gap-6">
-            {navigation.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.end}
-                className={({ isActive }) =>
-                  `text-sm transition ${
-                    isActive
-                      ? 'font-semibold text-observatory-cyan'
-                      : 'text-observatory-muted hover:text-observatory-text'
-                  }`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
+              {navigation.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    `text-sm transition ${
+                      isActive
+                        ? 'font-semibold text-observatory-cyan'
+                        : 'text-observatory-muted hover:text-observatory-text'
+                    }`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
             </nav>
             <details className="relative">
               <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-observatory-border px-3 py-2 text-xs text-observatory-muted hover:border-observatory-cyan hover:text-observatory-text">
@@ -63,7 +63,7 @@ export default function AppLayout() {
       </main>
 
       <footer className="border-t border-observatory-border px-6 py-5 text-center text-xs text-observatory-muted">
-        SPHEREx Explorer � Astronomical data exploration
+        SPHEREx Explorer · Astronomical data exploration
       </footer>
     </div>
   )

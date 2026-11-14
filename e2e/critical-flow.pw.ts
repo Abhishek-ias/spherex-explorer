@@ -71,3 +71,39 @@ test('guided tour moves between its steps', async ({ page }) => {
   await page.getByRole('button', { name: 'Back' }).click()
   await expect(page.getByRole('heading', { name: 'Search a position' })).toBeVisible()
 })
+
+
+test('homepage has no horizontal overflow at mobile width', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto('/')
+
+  const dimensions = await page.evaluate(() => ({
+    viewportWidth: window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+  }))
+  expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth)
+  await expect(page.getByLabel('Right Ascension (RA)')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Search' })).toBeVisible()
+})
+
+test('homepage remains usable at tablet width', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 })
+  await page.goto('/')
+
+  const dimensions = await page.evaluate(() => ({
+    viewportWidth: window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+  }))
+  expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth)
+  await expect(page.getByLabel('Field of view')).toBeVisible()
+})
+
+test('starfield animation respects reduced-motion preferences', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+
+  const animationName = await page.locator('.starfield-glow').evaluate((element) =>
+    getComputedStyle(element, '::before').animationName,
+  )
+  expect(animationName).toBe('none')
+})
