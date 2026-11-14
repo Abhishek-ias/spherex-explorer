@@ -8,6 +8,7 @@ import SpectrumAnalysis from './SpectrumAnalysis'
 import DifferenceAnalysis from './DifferenceAnalysis'
 import TrackingIsolation from './TrackingIsolation'
 import ShareControls from './ShareControls'
+import AladinContextMap from './AladinContextMap'
 import ObservationTimeline from './ObservationTimeline'
 import { searchParamsSchema } from './searchParams'
 
@@ -414,6 +415,12 @@ export default function ExploreWorkspace() {
               <div className="flex justify-between gap-3"><dt className="text-observatory-muted">FOV</dt><dd>{data.fov_arcmin} arcmin</dd></div>
             </dl>
           </section>
+
+          <AladinContextMap
+            ra={data.query_ra_deg}
+            dec={data.query_dec_deg}
+            fovArcmin={data.fov_arcmin}
+          />
 
           <section className="rounded-xl border border-observatory-border bg-observatory-surface p-5">
             <h2 className="font-semibold">Frame metadata</h2>
