@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import AladinContextMap from './AladinContextMap'
 
 describe('AladinContextMap', () => {
   afterEach(() => {
+    cleanup()
     delete window.A
   })
 
