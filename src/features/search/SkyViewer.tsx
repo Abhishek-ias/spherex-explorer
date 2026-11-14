@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent, WheelEvent, MouseEvent, KeyboardEvent } from 'react'
 import type { components } from '@/api/schema'
+import { findOverlayMarkerAtPoint, getImageDrawGeometry } from './viewerGeometry'
 
 type PixelPoint = components['schemas']['PixelPoint']
 
@@ -19,6 +20,7 @@ type Props = {
   overlayMarkers?: OverlayMarker[]
   pendingSelection?: { x: number; y: number }
   selectedObject?: PixelPoint
+  onOverlaySelect?: (markerId: string, kind: 'gaia' | 'wise') => void
   onIdentify?: (x: number, y: number, width: number, height: number) => void
 }
 
@@ -35,6 +37,7 @@ export default function SkyViewer({
   overlayMarkers = [],
   pendingSelection,
   selectedObject,
+  onOverlaySelect,
   onIdentify,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -252,37 +255,47 @@ export default function SkyViewer({
     redraw.current()
   }
 
-  function identifyAtPointer(event: MouseEvent<HTMLCanvasElement>) {
-    const canvas = event.currentTarget
-    const rect = canvas.getBoundingClientRect()
+  function handleClick(event: MouseEvent<HTMLCanvasElement>) {
+    if (drag.current.moved || !imageUrl || imageError) return
+
+    const rect = event.currentTarget.getBoundingClientRect()
     const { width: imageWidth, height: imageHeight } = imageSize.current
-    if (!imageWidth || !imageHeight) return
+    const geometry = getImageDrawGeometry(
+      rect.width,
+      rect.height,
+      imageWidth,
+      imageHeight,
+      view.current.zoom,
+      view.current.x,
+      view.current.y,
+    )
+    if (!geometry) return
 
-    const fit = Math.min(rect.width / imageWidth, rect.height / imageHeight)
-    const scale = fit * view.current.zoom
-    const drawWidth = imageWidth * scale
-    const drawHeight = imageHeight * scale
-    const drawLeft = (rect.width - drawWidth) / 2 + view.current.x
-    const drawTop = (rect.height - drawHeight) / 2 + view.current.y
-    const clickX = event.clientX - rect.left - drawLeft
-    const clickY = event.clientY - rect.top - drawTop
-
+    // Capture primitive values now; React's currentTarget is not safe to read
+    // from a delayed callback after this event handler returns.
+    const point = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    }
+    const clickX = point.x - geometry.x
+    const clickY = point.y - geometry.y
     if (
       clickX < 0 || clickY < 0 ||
-      clickX > drawWidth || clickY > drawHeight
+      clickX > geometry.width || clickY > geometry.height
     ) return
 
-    onIdentify?.(clickX, clickY, drawWidth, drawHeight)
-  }
+    const marker = findOverlayMarkerAtPoint(overlayMarkers, point, geometry)
 
-  function handleClick(event: MouseEvent<HTMLCanvasElement>) {
-    if (drag.current.moved || !imageUrl || imageError || !onIdentify) return
     if (clickTimer.current !== null) {
       window.clearTimeout(clickTimer.current)
     }
     clickTimer.current = window.setTimeout(() => {
       clickTimer.current = null
-      identifyAtPointer(event)
+      if (marker) {
+        onOverlaySelect?.(marker.id, marker.kind)
+        return
+      }
+      onIdentify?.(clickX, clickY, geometry.width, geometry.height)
     }, 240)
   }
 

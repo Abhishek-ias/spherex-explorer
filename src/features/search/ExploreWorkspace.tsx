@@ -40,6 +40,10 @@ export default function ExploreWorkspace() {
 
   const [identifyError, setIdentifyError] = useState('')
   const [pendingSelection, setPendingSelection] = useState<{ x: number; y: number } | null>(null)
+  const [selectedOverlay, setSelectedOverlay] = useState<{
+    id: string
+    kind: 'gaia' | 'wise'
+  } | null>(null)
   const [gaiaVisible, setGaiaVisible] = useState(() => params.get('layers')?.split(',').includes('gaia') ?? false)
   const [wiseVisible, setWiseVisible] = useState(() => params.get('layers')?.split(',').includes('wise') ?? false)
   const [gaiaOpacity, setGaiaOpacity] = useState(() => readOpacityParameter(params, 'gaiaOpacity'))
@@ -316,6 +320,7 @@ export default function ExploreWorkspace() {
             overlayMarkers={overlayMarkers}
             pendingSelection={pendingSelection ?? undefined}
             selectedObject={identify.data?.target_px}
+            onOverlaySelect={(id, kind) => setSelectedOverlay({ id, kind })}
           />
 
           <ObservationTimeline
@@ -491,6 +496,53 @@ export default function ExploreWorkspace() {
                 <div className="text-xs text-observatory-muted">
                   CSA NEOSSat observations: {overlays.data.csa_neossat_observations.length}
                 </div>
+                {selectedOverlay?.kind === 'gaia' && (() => {
+                  const source = overlays.data?.gaia_dr3_sources.find(
+                    (item) => item.source_id === selectedOverlay.id,
+                  )
+                  if (!source) return null
+                  return (
+                    <div role="status" aria-label="Selected Gaia source details" className="rounded-xl border border-blue-400/40 bg-blue-500/5 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="font-semibold text-blue-300">Selected Gaia DR3 source</h3>
+                        <button type="button" onClick={() => setSelectedOverlay(null)} className="text-xs text-observatory-muted underline">Close</button>
+                      </div>
+                      <p className="mt-2 break-all font-mono text-xs">{source.source_id}</p>
+                      <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                        <div><dt className="text-observatory-muted">RA</dt><dd>{source.ra_deg.toFixed(6)}°</dd></div>
+                        <div><dt className="text-observatory-muted">Dec</dt><dd>{source.dec_deg.toFixed(6)}°</dd></div>
+                        <div><dt className="text-observatory-muted">PMRA</dt><dd>{source.pmra_mas_yr} mas/yr</dd></div>
+                        <div><dt className="text-observatory-muted">PMDec</dt><dd>{source.pmdec_mas_yr} mas/yr</dd></div>
+                        <div><dt className="text-observatory-muted">Parallax</dt><dd>{source.parallax_mas ?? 'Not supplied'} mas</dd></div>
+                        <div><dt className="text-observatory-muted">G magnitude</dt><dd>{source.g_mag ?? 'Not supplied'}</dd></div>
+                        <div><dt className="text-observatory-muted">BP − RP</dt><dd>{source.bp_rp ?? 'Not supplied'}</dd></div>
+                        <div><dt className="text-observatory-muted">Reference epoch</dt><dd>{source.ref_epoch}</dd></div>
+                      </dl>
+                    </div>
+                  )
+                })()}
+                {selectedOverlay?.kind === 'wise' && (() => {
+                  const source = overlays.data?.wise_sources.find(
+                    (item) => item.designation === selectedOverlay.id,
+                  )
+                  if (!source) return null
+                  return (
+                    <div role="status" aria-label="Selected WISE source details" className="rounded-xl border border-amber-400/40 bg-amber-500/5 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="font-semibold text-amber-300">Selected AllWISE source</h3>
+                        <button type="button" onClick={() => setSelectedOverlay(null)} className="text-xs text-observatory-muted underline">Close</button>
+                      </div>
+                      <p className="mt-2 break-all font-mono text-xs">{source.designation}</p>
+                      <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                        <div><dt className="text-observatory-muted">RA</dt><dd>{source.ra_deg.toFixed(6)}°</dd></div>
+                        <div><dt className="text-observatory-muted">Dec</dt><dd>{source.dec_deg.toFixed(6)}°</dd></div>
+                        <div><dt className="text-observatory-muted">W1 magnitude</dt><dd>{source.w1_mag ?? 'Not supplied'}</dd></div>
+                        <div><dt className="text-observatory-muted">W2 magnitude</dt><dd>{source.w2_mag ?? 'Not supplied'}</dd></div>
+                      </dl>
+                    </div>
+                  )
+                })()}
+
                 <p className="text-xs leading-5 text-observatory-muted">
                   Not every SPHEREx source has a catalogue counterpart. Catalogue epochs,
                   resolutions and wavelength ranges differ.
