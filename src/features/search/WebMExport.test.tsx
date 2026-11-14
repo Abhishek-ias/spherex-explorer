@@ -1,8 +1,8 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
+import WebMExport from './WebMExport'
 
 afterEach(() => cleanup())
-import WebMExport from './WebMExport'
 
 describe('WebMExport', () => {
   it('keeps the export disabled until at least two observation frames exist', () => {
