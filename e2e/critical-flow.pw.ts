@@ -107,3 +107,12 @@ test('starfield animation respects reduced-motion preferences', async ({ page })
   )
   expect(animationName).toBe('none')
 })
+
+
+test('invalid shared URLs provide coordinate-specific feedback', async ({ page }) => {
+  await page.goto('/explore?ra=360&dec=0&fov=15')
+
+  await expect(page.getByRole('alert')).toContainText('invalid coordinates or settings')
+  await expect(page.getByRole('alert')).toContainText('less than 360')
+  await expect(page.getByRole('link', { name: 'Return to coordinate search' })).toBeVisible()
+})

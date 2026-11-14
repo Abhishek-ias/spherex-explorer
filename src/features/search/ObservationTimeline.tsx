@@ -10,15 +10,18 @@ import {
 type Props = {
   entries: ObservationTimelineEntry[]
   selectedId: string
+  bandValue: string
+  onBandChange: (bandValue: string) => void
   onSelect: (observationId: string) => void
 }
 
 export default function ObservationTimeline({
   entries,
   selectedId,
+  bandValue,
+  onBandChange,
   onSelect,
 }: Props) {
-  const [bandValue, setBandValue] = useState('all')
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState('1')
 
@@ -40,7 +43,7 @@ export default function ObservationTimeline({
   }
 
   function changeBand(nextBand: string) {
-    setBandValue(nextBand)
+    onBandChange(nextBand)
     setPlaying(false)
     const nextEntries = filterTimelineByBand(entries, nextBand)
     if (!nextEntries.some(({ frame }) => frame.obs_id === selectedId)) {

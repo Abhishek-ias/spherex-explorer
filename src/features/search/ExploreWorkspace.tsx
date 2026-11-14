@@ -67,6 +67,7 @@ export default function ExploreWorkspace() {
 
   const [selectedId, setSelectedId] = useState(() => params.get('frame') ?? '')
   const [compareId, setCompareId] = useState(() => params.get('compare') ?? '')
+  const [timelineBand, setTimelineBand] = useState(() => params.get('band') ?? 'all')
   const selectedFrame = frames.find((frame) => frame.obs_id === selectedId) ?? frames[0]
 
 
@@ -119,6 +120,9 @@ export default function ExploreWorkspace() {
     if (compareFrameId) next.set('compare', compareFrameId)
     else next.delete('compare')
 
+    if (timelineBand === 'all') next.delete('band')
+    else next.set('band', timelineBand)
+
     const layers = [
       ...(gaiaVisible ? ['gaia'] : []),
       ...(wiseVisible ? ['wise'] : []),
@@ -140,6 +144,7 @@ export default function ExploreWorkspace() {
     compareFrameId,
     gaiaVisible,
     wiseVisible,
+    timelineBand,
     gaiaOpacity,
     wiseOpacity,
     identify.data?.object_id,
@@ -328,6 +333,8 @@ export default function ExploreWorkspace() {
           <ObservationTimeline
             entries={timelineEntries}
             selectedId={selectedFrame.obs_id}
+            bandValue={timelineBand}
+            onBandChange={setTimelineBand}
             onSelect={selectFrame}
           />
 
