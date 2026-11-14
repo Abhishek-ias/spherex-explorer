@@ -1,4 +1,3 @@
-
 import { NavLink, Outlet } from 'react-router-dom'
 import { Orbit } from 'lucide-react'
 
@@ -11,36 +10,25 @@ const navigation = [
 export default function AppLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-observatory-bg text-observatory-text">
-
-      {/* Application header */}
-      <header className="border-b border-observatory-border bg-observatory-surface">
-        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4 px-5 py-4">
-
-          {/* Brand */}
-          <NavLink to="/" className="flex items-center gap-3 no-underline">
+      <header className="border-b border-observatory-border bg-observatory-surface/80">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4">
+          <NavLink to="/" className="flex items-center gap-3">
             <Orbit className="h-7 w-7 text-observatory-cyan" />
-
-            <div>
-              <h1 className="font-heading text-lg font-semibold tracking-wide">
-                SPHEREx Explorer
-              </h1>
-              <p className="text-xs tracking-wider text-observatory-muted">
-                INFRARED SKY OBSERVATORY
-              </p>
-            </div>
+            <span className="font-heading text-lg font-semibold tracking-wide">
+              SPHEREx Explorer
+            </span>
           </NavLink>
 
-          {/* Navigation */}
-          <nav aria-label="Main navigation" className="flex items-center gap-2">
+          <nav aria-label="Main navigation" className="flex items-center gap-6">
             {navigation.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
                 end={item.end}
                 className={({ isActive }) =>
-                  `rounded-md px-3 py-2 text-sm transition-colors ${
+                  `text-sm transition ${
                     isActive
-                      ? 'bg-observatory-cyan/10 text-observatory-cyan'
+                      ? 'font-semibold text-observatory-cyan'
                       : 'text-observatory-muted hover:text-observatory-text'
                   }`
                 }
@@ -49,22 +37,16 @@ export default function AppLayout() {
               </NavLink>
             ))}
           </nav>
-
         </div>
       </header>
 
-      {/* Page content */}
-      <main className="mx-auto w-full max-w-[1600px] flex-1 px-5 py-8">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-10">
         <Outlet />
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-observatory-border px-5 py-4">
-        <p className="text-center text-xs text-observatory-muted">
-          SPHEREx Explorer · Frontend Foundation
-        </p>
+      <footer className="border-t border-observatory-border px-6 py-5 text-center text-xs text-observatory-muted">
+        SPHEREx Explorer � Astronomical data exploration
       </footer>
-
     </div>
   )
 }

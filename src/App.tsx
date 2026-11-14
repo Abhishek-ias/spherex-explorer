@@ -1,122 +1,144 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { Link, Route, Routes, useParams } from 'react-router-dom'
+import AppLayout from '@/components/layout/AppLayout'
 
-function App() {
-  const [count, setCount] = useState(0)
+class PageErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Page rendering error:', error, info)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <section className="rounded-xl border border-observatory-border bg-observatory-surface p-8">
+          <h2 className="text-xl font-semibold">This page encountered an error</h2>
+          <p className="mt-2 text-observatory-muted">
+            Try navigating to another section.
           </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+        </section>
+      )
+    }
+
+    return this.props.children
+  }
+}
+
+function HomePage() {
+  return (
+    <section className="flex min-h-[65vh] flex-col justify-center">
+      <p className="font-mono text-sm uppercase tracking-[0.25em] text-observatory-cyan">
+        Infrared sky exploration
+      </p>
+      <h1 className="mt-5 max-w-3xl font-heading text-5xl font-semibold tracking-tight sm:text-6xl">
+        Explore the SPHEREx universe.
+      </h1>
+      <p className="mt-6 max-w-2xl text-lg leading-8 text-observatory-muted">
+        Search the sky, inspect observation epochs, and investigate potential
+        astronomical signals through one exploration workspace.
+      </p>
+      <div className="mt-9">
+        <Link
+          to="/explore"
+          className="inline-flex rounded-lg bg-observatory-cyan px-6 py-3 font-semibold text-slate-950 transition hover:opacity-90"
         >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+          Open Explorer
+        </Link>
+      </div>
+    </section>
   )
 }
 
-export default App
+function ExplorePage() {
+  return (
+    <section>
+      <p className="font-mono text-xs uppercase tracking-widest text-observatory-cyan">
+        Workspace
+      </p>
+      <h1 className="mt-3 font-heading text-3xl font-semibold">Sky Explorer</h1>
+      <p className="mt-3 text-observatory-muted">
+        Coordinate search and observation exploration will be implemented in Phase 1.
+      </p>
+    </section>
+  )
+}
+
+function InvestigationPage() {
+  const { investigationId } = useParams<{ investigationId: string }>()
+
+  return (
+    <section>
+      <p className="font-mono text-xs uppercase tracking-widest text-observatory-cyan">
+        Saved investigation
+      </p>
+      <h1 className="mt-3 font-heading text-3xl font-semibold">
+        Investigation
+      </h1>
+      <p className="mt-3 text-observatory-muted">
+        Investigation ID: <span className="font-mono">{investigationId}</span>
+      </p>
+      <p className="mt-2 text-sm text-observatory-muted">
+        Restoring saved investigation data will be connected when the backend
+        provides the required persistence endpoints.
+      </p>
+    </section>
+  )
+}
+
+function AboutPage() {
+  return (
+    <section className="max-w-3xl">
+      <p className="font-mono text-xs uppercase tracking-widest text-observatory-cyan">
+        About the project
+      </p>
+      <h1 className="mt-3 font-heading text-3xl font-semibold">
+        About SPHEREx Explorer
+      </h1>
+      <p className="mt-4 leading-7 text-observatory-muted">
+        SPHEREx Explorer is an astronomical data exploration interface.
+        It is designed to help users search sky coordinates, inspect
+        observations, compare epochs, and investigate potential detections.
+      </p>
+    </section>
+  )
+}
+
+function NotFoundPage() {
+  return (
+    <section className="py-16 text-center">
+      <p className="font-mono text-sm text-observatory-cyan">404</p>
+      <h1 className="mt-3 font-heading text-3xl font-semibold">Page not found</h1>
+      <Link to="/" className="mt-6 inline-block text-observatory-cyan underline">
+        Return home
+      </Link>
+    </section>
+  )
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route
+        element={
+          <PageErrorBoundary>
+            <AppLayout />
+          </PageErrorBoundary>
+        }
+      >
+        <Route index element={<PageErrorBoundary><HomePage /></PageErrorBoundary>} />
+        <Route path="explore" element={<PageErrorBoundary><ExplorePage /></PageErrorBoundary>} />
+        <Route path="d/:investigationId" element={<PageErrorBoundary><InvestigationPage /></PageErrorBoundary>} />
+        <Route path="about" element={<PageErrorBoundary><AboutPage /></PageErrorBoundary>} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
+  )
+}
