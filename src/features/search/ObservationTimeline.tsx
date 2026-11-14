@@ -69,7 +69,7 @@ export default function ObservationTimeline({
   const nextDisabled =
     selectedIndex < 0 || selectedIndex >= visibleEntries.length - 1
 
-  function handleTimelineKeyDown(event: KeyboardEvent<HTMLElement>) {
+  function handleTimelineKeyDown(event: KeyboardEvent) {
     if (event.target !== event.currentTarget) return
     if (event.key === 'ArrowLeft') {
       event.preventDefault()
