@@ -7,11 +7,11 @@ import {
 describe('viewer geometry and overlay hit testing', () => {
   it('fits the image without changing its aspect ratio and applies the view transform', () => {
     expect(getImageDrawGeometry(400, 300, 200, 100, 2, 10, -5)).toEqual({
-      x: 10,
-      y: 45,
-      width: 400,
-      height: 200,
-      scale: 2,
+      x: -190,
+      y: -55,
+      width: 800,
+      height: 400,
+      scale: 4,
     })
   })
 
