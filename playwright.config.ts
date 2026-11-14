@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  testMatch: '**/*.pw.ts',
   fullyParallel: true,
   timeout: 30_000,
   expect: {
