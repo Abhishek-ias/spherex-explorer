@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Pause, Play, SkipBack, SkipForward } from 'lucide-react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import {
   filterTimelineByBand,
   getWavelengthBandOptions,
@@ -69,7 +70,7 @@ export default function ObservationTimeline({
   const nextDisabled =
     selectedIndex < 0 || selectedIndex >= visibleEntries.length - 1
 
-  function handleTimelineKeyDown(event: KeyboardEvent) {
+  function handleTimelineKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
     if (event.target !== event.currentTarget) return
     if (event.key === 'ArrowLeft') {
       event.preventDefault()
