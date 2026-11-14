@@ -11,6 +11,14 @@ import ShareControls from './ShareControls'
 import ObservationTimeline from './ObservationTimeline'
 import { searchParamsSchema } from './searchParams'
 
+function readOpacityParameter(params: URLSearchParams, key: string): number {
+  const value = params.get(key)
+  if (value === null) return 80
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return 80
+  return Math.min(100, Math.max(10, Math.round(parsed)))
+}
+
 export default function ExploreWorkspace() {
   const [params, setParams] = useSearchParams()
   const parsed = searchParamsSchema.safeParse({
@@ -34,6 +42,8 @@ export default function ExploreWorkspace() {
   const [pendingSelection, setPendingSelection] = useState<{ x: number; y: number } | null>(null)
   const [gaiaVisible, setGaiaVisible] = useState(() => params.get('layers')?.split(',').includes('gaia') ?? false)
   const [wiseVisible, setWiseVisible] = useState(() => params.get('layers')?.split(',').includes('wise') ?? false)
+  const [gaiaOpacity, setGaiaOpacity] = useState(() => readOpacityParameter(params, 'gaiaOpacity'))
+  const [wiseOpacity, setWiseOpacity] = useState(() => readOpacityParameter(params, 'wiseOpacity'))
 
   const timelineEntries = useMemo(
     () => data?.epochs.flatMap((epoch) =>
@@ -93,6 +103,9 @@ export default function ExploreWorkspace() {
     if (layers.length) next.set('layers', layers.join(','))
     else next.delete('layers')
 
+    next.set('gaiaOpacity', String(gaiaOpacity))
+    next.set('wiseOpacity', String(wiseOpacity))
+
     if (identify.data?.object_id) next.set('obj', identify.data.object_id)
 
     if (next.toString() !== params.toString()) {
@@ -103,6 +116,8 @@ export default function ExploreWorkspace() {
     compareFrameId,
     gaiaVisible,
     wiseVisible,
+    gaiaOpacity,
+    wiseOpacity,
     identify.data?.object_id,
     params,
     setParams,
@@ -119,6 +134,7 @@ export default function ExploreWorkspace() {
             x: point.x,
             y: point.y,
             kind: 'gaia' as const,
+            opacity: gaiaOpacity / 100,
           }] : []
         })
       : []
@@ -131,12 +147,13 @@ export default function ExploreWorkspace() {
             x: point.x,
             y: point.y,
             kind: 'wise' as const,
+            opacity: wiseOpacity / 100,
           }] : []
         })
       : []
 
     return [...gaia, ...wise]
-  }, [selectedFrameId, overlays.data, gaiaVisible, wiseVisible])
+  }, [selectedFrameId, overlays.data, gaiaVisible, wiseVisible, gaiaOpacity, wiseOpacity])
 
   function identifyAt(x: number, y: number, width: number, height: number) {
     if (ra === undefined || dec === undefined || fov === undefined || !selectedFrame) return
@@ -426,38 +443,72 @@ export default function ExploreWorkspace() {
                 <label className="flex items-center justify-between text-sm">
                   <span>Gaia DR3 ({overlays.data.gaia_dr3_sources.length})</span>
                   <input type="checkbox" checked={gaiaVisible}
-                    onChange={(event) => setGaiaVisible(event.target.checked)} />
+                    onChange={(event) => setGaiaVisible(event.target.checked)}
+                    aria-label="Show Gaia DR3 overlay" />
                 </label>
                 <label className="flex items-center justify-between text-sm">
                   <span>WISE ({overlays.data.wise_sources.length})</span>
                   <input type="checkbox" checked={wiseVisible}
-                    onChange={(event) => setWiseVisible(event.target.checked)} />
+                    onChange={(event) => setWiseVisible(event.target.checked)}
+                    aria-label="Show WISE overlay" />
                 </label>
+                <div className="space-y-3 rounded-lg border border-observatory-border p-3">
+                  <label className="block text-xs text-observatory-muted">
+                    Gaia marker opacity · {gaiaOpacity}%
+                    <input type="range" min="10" max="100" step="5" value={gaiaOpacity}
+                      disabled={!gaiaVisible}
+                      onChange={(event) => setGaiaOpacity(Number(event.target.value))}
+                      aria-label="Gaia marker opacity"
+                      className="mt-2 w-full accent-blue-400 disabled:opacity-40" />
+                  </label>
+                  <label className="block text-xs text-observatory-muted">
+                    WISE marker opacity · {wiseOpacity}%
+                    <input type="range" min="10" max="100" step="5" value={wiseOpacity}
+                      disabled={!wiseVisible}
+                      onChange={(event) => setWiseOpacity(Number(event.target.value))}
+                      aria-label="WISE marker opacity"
+                      className="mt-2 w-full accent-amber-400 disabled:opacity-40" />
+                  </label>
+                </div>
                 <div className="text-xs text-observatory-muted">
                   CSA NEOSSat observations: {overlays.data.csa_neossat_observations.length}
                 </div>
-                <div className="max-h-52 space-y-2 overflow-y-auto">
+                <p className="text-xs leading-5 text-observatory-muted">
+                  Not every SPHEREx source has a catalogue counterpart. Catalogue epochs,
+                  resolutions and wavelength ranges differ.
+                </p>
+                <div className="max-h-72 space-y-2 overflow-y-auto">
                   {gaiaVisible && overlays.data.gaia_dr3_sources.map((source) => (
-                    <div key={source.source_id} className="rounded-lg border border-observatory-border p-3 text-xs">
-                      <p className="font-semibold text-blue-300">Gaia {source.source_id}</p>
-                      <p className="mt-1 text-observatory-muted">
-                        RA {source.ra_deg.toFixed(5)} ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· Dec {source.dec_deg.toFixed(5)}
-                      </p>
-                      <p className="mt-1 text-observatory-muted">
-                        PMRA {source.pmra_mas_yr} ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· PMDEC {source.pmdec_mas_yr} mas/yr
-                      </p>
-                      <p className="mt-1 text-observatory-muted">
-                        Parallax {source.parallax_mas ?? 'Not supplied'} mas
-                      </p>
-                    </div>
+                    <details key={source.source_id} className="rounded-lg border border-observatory-border p-3 text-xs">
+                      <summary className="cursor-pointer font-semibold text-blue-300">
+                        Gaia DR3 · {source.source_id}
+                      </summary>
+                      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
+                        <div><dt className="text-observatory-muted">RA (ICRS)</dt><dd className="font-mono">{source.ra_deg.toFixed(6)}°</dd></div>
+                        <div><dt className="text-observatory-muted">Dec (ICRS)</dt><dd className="font-mono">{source.dec_deg.toFixed(6)}°</dd></div>
+                        <div><dt className="text-observatory-muted">PMRA</dt><dd>{source.pmra_mas_yr} mas/yr</dd></div>
+                        <div><dt className="text-observatory-muted">PMDec</dt><dd>{source.pmdec_mas_yr} mas/yr</dd></div>
+                        <div><dt className="text-observatory-muted">Parallax</dt><dd>{source.parallax_mas ?? 'Not supplied'} mas</dd></div>
+                        <div><dt className="text-observatory-muted">G magnitude</dt><dd>{source.g_mag ?? 'Not supplied'}</dd></div>
+                        <div><dt className="text-observatory-muted">BP − RP</dt><dd>{source.bp_rp ?? 'Not supplied'}</dd></div>
+                        <div><dt className="text-observatory-muted">Reference epoch</dt><dd>{source.ref_epoch}</dd></div>
+                        <div><dt className="text-observatory-muted">RA at epoch</dt><dd>{source.ra_at_epoch_deg.toFixed(6)}°</dd></div>
+                        <div><dt className="text-observatory-muted">Dec at epoch</dt><dd>{source.dec_at_epoch_deg.toFixed(6)}°</dd></div>
+                      </dl>
+                    </details>
                   ))}
                   {wiseVisible && overlays.data.wise_sources.map((source) => (
-                    <div key={source.designation} className="rounded-lg border border-observatory-border p-3 text-xs">
-                      <p className="font-semibold text-amber-300">{source.designation}</p>
-                      <p className="mt-1 text-observatory-muted">
-                        W1 {source.w1_mag ?? 'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â'} ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· W2 {source.w2_mag ?? 'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â'}
-                      </p>
-                    </div>
+                    <details key={source.designation} className="rounded-lg border border-observatory-border p-3 text-xs">
+                      <summary className="cursor-pointer font-semibold text-amber-300">
+                        AllWISE · {source.designation}
+                      </summary>
+                      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
+                        <div><dt className="text-observatory-muted">RA (ICRS)</dt><dd className="font-mono">{source.ra_deg.toFixed(6)}°</dd></div>
+                        <div><dt className="text-observatory-muted">Dec (ICRS)</dt><dd className="font-mono">{source.dec_deg.toFixed(6)}°</dd></div>
+                        <div><dt className="text-observatory-muted">W1</dt><dd>{source.w1_mag ?? 'Not supplied'}</dd></div>
+                        <div><dt className="text-observatory-muted">W2</dt><dd>{source.w2_mag ?? 'Not supplied'}</dd></div>
+                      </dl>
+                    </details>
                   ))}
                 </div>
                 <a href={overlays.data.wiseview_url} target="_blank" rel="noreferrer"

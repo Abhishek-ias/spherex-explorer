@@ -9,6 +9,7 @@ export type OverlayMarker = {
   x: number
   y: number
   kind: 'gaia' | 'wise'
+  opacity?: number
 }
 
 type Props = {
@@ -137,6 +138,8 @@ export default function SkyViewer({
 
         context.beginPath()
         context.arc(mx, my, 6, 0, Math.PI * 2)
+        const previousAlpha = context.globalAlpha
+        context.globalAlpha = marker.opacity ?? 1
         context.fillStyle = marker.kind === 'gaia'
           ? 'rgba(59,130,246,0.22)'
           : 'rgba(245,158,11,0.22)'
@@ -144,6 +147,7 @@ export default function SkyViewer({
         context.lineWidth = 1.7
         context.fill()
         context.stroke()
+        context.globalAlpha = previousAlpha
       }
     }
 
