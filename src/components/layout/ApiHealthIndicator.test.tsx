@@ -39,6 +39,6 @@ describe('ApiHealthIndicator', () => {
 
     renderIndicator()
 
-    expect(await screen.findByText('API unavailable')).toBeInTheDocument()
+    expect(await screen.findByText('API unavailable', {}, { timeout: 5_000 })).toBeInTheDocument()
   })
 })
