@@ -35,6 +35,10 @@ const isolatedEpochFrameSchema = z.object({
   isolated_png_url: z.string(),
   target_px: pixelPointSchema,
   source_measurement: sourceMeasurementSchema,
+  // Optional v2.1 image resources are read from the backend response when
+  // present; the generated v2.0 OpenAPI model remains unchanged.
+  follow_object_png_url: z.string().min(1).optional(),
+  follow_object_with_bg_png_url: z.string().min(1).optional(),
 })
 
 export const isolateResponseSchema = z.object({
@@ -45,7 +49,9 @@ export const isolateResponseSchema = z.object({
   apparent_motion_arcsec_per_yr: z.number(),
 })
 
-export function parseIsolationJobResult(value: unknown): IsolateResponse | null {
+export type ParsedIsolationResponse = z.infer<typeof isolateResponseSchema>
+
+export function parseIsolationJobResult(value: unknown): ParsedIsolationResponse | null {
   const parsed = isolateResponseSchema.safeParse(value)
   return parsed.success ? parsed.data : null
 }

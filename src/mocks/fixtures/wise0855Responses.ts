@@ -5,6 +5,18 @@ type Source = components['schemas']['SourceIdentificationResponse']
 type OverlayResponse = components['schemas']['OverlayResponse']
 type DifferenceResponse = components['schemas']['DifferenceResponse']
 type IsolateResponse = components['schemas']['IsolateResponse']
+type IsolatedEpochFrame = components['schemas']['IsolatedEpochFrame']
+type BackendV21IsolatedEpochFrame = IsolatedEpochFrame & {
+  follow_object_png_url: string
+  follow_object_with_bg_png_url: string
+}
+type BackendV21IsolateResponse = Omit<
+  IsolateResponse,
+  'early_epoch_isolated' | 'late_epoch_isolated'
+> & {
+  early_epoch_isolated: BackendV21IsolatedEpochFrame
+  late_epoch_isolated: BackendV21IsolatedEpochFrame
+}
 
 const frames = wise0855Search.epochs[0].observations
 export const wise0855EarlierFrame = frames[0]
@@ -138,16 +150,21 @@ export const wise0855Difference = {
   ],
 } satisfies DifferenceResponse
 
-// Backend-provided POST /api/objects/isolate sample, using only fields in the
-// repository's current generated OpenAPI 2.0.0 contract.
+// Backend-provided POST /api/objects/isolate sample. The two follow-object PNG
+// URLs are optional v2.1 response extensions from the teammate's actual sample;
+// the generated v2.0 OpenAPI declaration remains unchanged.
 export const wise0855Isolation = {
   early_epoch_isolated: {
     isolated_png_url: '/api/cache/isolated_c62d04923b470855.png',
+    follow_object_png_url: '/api/cache/follow_iso_c62d04923b470855.png',
+    follow_object_with_bg_png_url: '/api/cache/follow_bg_c62d04923b470855.png',
     target_px: { x: 72.81, y: 71.89 },
     source_measurement: wise0855IdentifiedSource,
   },
   late_epoch_isolated: {
     isolated_png_url: '/api/cache/isolated_91e3a10b44f82c10.png',
+    follow_object_png_url: '/api/cache/follow_iso_91e3a10b44f82c10.png',
+    follow_object_with_bg_png_url: '/api/cache/follow_bg_91e3a10b44f82c10.png',
     target_px: { x: 74.12, y: 71.95 },
     source_measurement: {
       object_id: 'SPX-133.79232-7.24552',
@@ -175,4 +192,4 @@ export const wise0855Isolation = {
   angular_displacement_arcsec: 8.099,
   time_baseline_days: 365.92,
   apparent_motion_arcsec_per_yr: 8.084,
-} satisfies IsolateResponse
+} satisfies BackendV21IsolateResponse

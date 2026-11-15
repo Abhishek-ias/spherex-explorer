@@ -27,11 +27,15 @@ const measurement = {
 const response = {
   early_epoch_isolated: {
     isolated_png_url: 'https://example.test/early.png',
+    follow_object_png_url: '/api/cache/follow-early.png',
+    follow_object_with_bg_png_url: '/api/cache/follow-bg-early.png',
     target_px: { x: 40, y: 42 },
     source_measurement: measurement,
   },
   late_epoch_isolated: {
     isolated_png_url: 'https://example.test/late.png',
+    follow_object_png_url: '/api/cache/follow-late.png',
+    follow_object_with_bg_png_url: '/api/cache/follow-bg-late.png',
     target_px: { x: 41, y: 43 },
     source_measurement: { ...measurement, date_obs: '2025-01-02T00:00:00Z' },
   },
@@ -43,6 +47,33 @@ const response = {
 describe('parseIsolationJobResult', () => {
   it('accepts a result matching the OpenAPI IsolateResponse structure', () => {
     expect(parseIsolationJobResult(response)).toEqual(response)
+  })
+
+  it('preserves optional backend follow-object image resources', () => {
+    const parsed = parseIsolationJobResult(response)
+    expect(parsed?.early_epoch_isolated.follow_object_png_url).toBe(
+      '/api/cache/follow-early.png',
+    )
+    expect(parsed?.late_epoch_isolated.follow_object_with_bg_png_url).toBe(
+      '/api/cache/follow-bg-late.png',
+    )
+  })
+
+  it('accepts legacy v2.0 results without follow-object image resources', () => {
+    const legacy = {
+      ...response,
+      early_epoch_isolated: {
+        isolated_png_url: 'https://example.test/early.png',
+        target_px: { x: 40, y: 42 },
+        source_measurement: measurement,
+      },
+      late_epoch_isolated: {
+        isolated_png_url: 'https://example.test/late.png',
+        target_px: { x: 41, y: 43 },
+        source_measurement: { ...measurement, date_obs: '2025-01-02T00:00:00Z' },
+      },
+    }
+    expect(parseIsolationJobResult(legacy)).not.toBeNull()
   })
 
   it('rejects an incomplete or malformed completed-job result', () => {

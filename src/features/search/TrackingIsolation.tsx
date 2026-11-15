@@ -3,7 +3,7 @@ import { Pause, Play, SkipBack, SkipForward } from 'lucide-react'
 import { useIsolateObject } from '@/api/hooks/useIsolateObject'
 import { useObjectIsolationJob } from '@/api/hooks/useObjectIsolationJob'
 import type { components } from '@/api/schema'
-import { getNextSequenceIndex, normalizeSequenceIndex } from './isolationSequence'
+import { getIsolationImageOptions, getNextSequenceIndex, normalizeSequenceIndex, type IsolationImageMode } from './isolationSequence'
 import { resolveApiAssetUrl } from '@/api/resolveApiAssetUrl'
 import BackendImage from './BackendImage'
 
@@ -26,6 +26,7 @@ export default function TrackingIsolation({
   const [activeIndex, setActiveIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState('1')
+  const [imageMode, setImageMode] = useState<IsolationImageMode>('isolated')
 
   const canIsolate =
     Boolean(firstFrame?.cutout_fits_url) &&
@@ -46,6 +47,12 @@ export default function TrackingIsolation({
     : []
   const safeIndex = normalizeSequenceIndex(activeIndex, sequence.length)
   const activeFrame = safeIndex >= 0 ? sequence[safeIndex] : undefined
+  const imageOptions = activeFrame
+    ? getIsolationImageOptions(activeFrame.frame)
+    : []
+  const activeImage =
+    imageOptions.find((option) => option.mode === imageMode) ??
+    imageOptions[0]
 
   useEffect(() => {
     if (!playing || sequence.length < 2) return
@@ -65,6 +72,7 @@ export default function TrackingIsolation({
 
     setPlaying(false)
     setActiveIndex(0)
+    setImageMode('isolated')
     isolation.reset()
     job.reset()
     job.submit.mutate({
@@ -234,13 +242,42 @@ export default function TrackingIsolation({
                 Frame {safeIndex + 1} / {sequence.length}
               </span>
             </div>
+            {imageOptions.length > 1 && (
+              <div
+                role="group"
+                aria-label="Isolation display mode"
+                className="flex flex-wrap items-center gap-2 border-b border-observatory-border px-4 py-3"
+              >
+                {imageOptions.map((option) => (
+                  <button
+                    key={option.mode}
+                    type="button"
+                    aria-pressed={(activeImage?.mode ?? 'isolated') === option.mode}
+                    onClick={() => setImageMode(option.mode)}
+                    className={`rounded-lg border px-3 py-2 text-xs transition ${
+                      (activeImage?.mode ?? 'isolated') === option.mode
+                        ? 'border-observatory-cyan bg-observatory-cyan/10 text-observatory-text'
+                        : 'border-observatory-border text-observatory-muted hover:border-observatory-cyan'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex min-h-64 items-center justify-center p-4">
-              <BackendImage
-                key={activeFrame.frame.isolated_png_url}
-                src={resolveApiAssetUrl(activeFrame.frame.isolated_png_url)}
-                alt={`${activeFrame.label}; backend isolated source ${source?.object_id ?? ''}`}
-                className="max-h-[440px] w-full object-contain"
-              />
+              {activeImage ? (
+                <BackendImage
+                  key={activeImage.url}
+                  src={resolveApiAssetUrl(activeImage.url)}
+                  alt={`${activeFrame.label}; ${activeImage.label}; backend source ${source?.object_id ?? ''}`}
+                  className="max-h-[440px] w-full object-contain"
+                />
+              ) : (
+                <p className="text-sm text-observatory-muted">
+                  No isolated image URL was returned for this epoch.
+                </p>
+              )}
             </div>
             <div className="grid gap-3 border-t border-observatory-border p-4 text-xs sm:grid-cols-3">
               <div>
