@@ -1,8 +1,9 @@
+import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import PanelErrorBoundary from './PanelErrorBoundary'
 
-function BrokenPanel() {
+function BrokenPanel(): ReactElement {
   throw new Error('render failed')
 }
 
