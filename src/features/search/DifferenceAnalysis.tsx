@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useDifferenceImage } from '@/api/hooks/useDifferenceImage'
+import { useDifferenceJob } from '@/api/hooks/useDifferenceJob'
 import type { components } from '@/api/schema'
 import SynchronizedDifferenceViewer from './SynchronizedDifferenceViewer'
 
@@ -18,7 +19,23 @@ export default function DifferenceAnalysis({
   secondFrame,
 }: Props) {
   const difference = useDifferenceImage()
+  const job = useDifferenceJob()
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
+  const [jobFallbackMessage, setJobFallbackMessage] = useState('')
+
+  const result = job.result ?? difference.data
+  const jobPayload = firstFrame && secondFrame
+    ? {
+        early_cutout_fits_url: firstFrame.mjd <= secondFrame.mjd
+          ? firstFrame.cutout_fits_url
+          : secondFrame.cutout_fits_url,
+        late_cutout_fits_url: firstFrame.mjd <= secondFrame.mjd
+          ? secondFrame.cutout_fits_url
+          : firstFrame.cutout_fits_url,
+        ra,
+        dec,
+      }
+    : null
 
   if (!firstFrame || !secondFrame) {
     return (
@@ -66,51 +83,156 @@ export default function DifferenceAnalysis({
         </div>
       </div>
 
-      <button
-        disabled={!canGenerate || difference.isPending}
-        onClick={() => difference.mutate({
-          early_cutout_fits_url: earlier.cutout_fits_url,
-          late_cutout_fits_url: later.cutout_fits_url,
-          ra,
-          dec,
-        })}
-        className="rounded-lg bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {difference.isPending ? 'Generating difference…' : 'Generate difference image'}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={!canGenerate || job.submit.isPending || difference.isPending}
+          onClick={() => {
+            if (!jobPayload) return
+            setJobFallbackMessage('')
+            difference.reset()
+            job.reset()
+            job.submit.mutate(jobPayload)
+          }}
+          className="rounded-lg bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {job.submit.isPending ? 'Submitting job…' : 'Generate with background job'}
+        </button>
+        <button
+          type="button"
+          disabled={!canGenerate || difference.isPending || job.submit.isPending}
+          onClick={() => {
+            setJobFallbackMessage('Using the synchronous difference endpoint.')
+            job.reset()
+            difference.mutate({
+              early_cutout_fits_url: earlier.cutout_fits_url,
+              late_cutout_fits_url: later.cutout_fits_url,
+              ra,
+              dec,
+            })
+          }}
+          className="rounded-lg border border-observatory-border px-4 py-3 text-sm hover:border-observatory-cyan disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Run directly instead
+        </button>
+      </div>
+
+      {job.submit.isPending && (
+        <p role="status" className="text-sm text-observatory-muted">
+          Submitting the difference task to the backend job queue…
+        </p>
+      )}
+
+      {job.status && (
+        <div className="space-y-3 rounded-xl border border-observatory-border bg-[#080f1c] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Background job · {job.status.status}</p>
+              <p className="mt-1 font-mono text-[11px] text-observatory-muted">
+                {job.status.id}
+              </p>
+            </div>
+            <span className="font-mono text-sm tabular-nums">
+              {Math.round(job.status.progress_pct)}%
+            </span>
+          </div>
+          <div
+            role="progressbar"
+            aria-label="Difference job progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={job.status.progress_pct}
+            className="h-2 overflow-hidden rounded-full bg-observatory-border"
+          >
+            <div
+              className="h-full rounded-full bg-observatory-cyan transition-all"
+              style={{ width: `${Math.max(0, Math.min(100, job.status.progress_pct))}%` }}
+            />
+          </div>
+          {job.status.status === 'queued' || job.status.status === 'running' ? (
+            <div className="flex flex-wrap items-center gap-3 text-xs text-observatory-muted">
+              <span>{job.isMonitoring ? 'Status refreshes automatically.' : 'Status monitoring is paused; backend processing may continue.'}</span>
+              {job.isMonitoring ? (
+                <button type="button" onClick={() => void job.stopMonitoring()} className="underline">
+                  Stop monitoring
+                </button>
+              ) : (
+                <button type="button" onClick={job.resumeMonitoring} className="underline">
+                  Resume monitoring
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-observatory-muted">
+              {job.status.status === 'completed'
+                ? 'The backend marked this job completed.'
+                : job.status.error || 'The backend job failed.'}
+            </p>
+          )}
+        </div>
+      )}
+
+      {job.queryError && (
+        <div role="alert" className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
+          {job.queryError.message}
+          <button type="button" className="ml-3 underline" onClick={job.resumeMonitoring}>
+            Retry monitoring
+          </button>
+        </div>
+      )}
+
+      {job.submit.isError && (
+        <div role="alert" className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
+          {job.submit.error.message}
+          <p className="mt-2 text-xs text-red-200/80">
+            The job endpoint may not be enabled on the backend yet. Use the direct endpoint as a fallback.
+          </p>
+        </div>
+      )}
+
+      {job.invalidCompletedResult && (
+        <div role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-200">
+          The job finished, but its result does not match the current DifferenceResponse schema.
+          No result image or candidate data will be inferred from it.
+        </div>
+      )}
 
       {difference.isPending && (
-        <p className="text-sm text-observatory-muted">
-          The backend is aligning the observation frames and calculating residuals.
+        <p role="status" className="text-sm text-observatory-muted">
+          The synchronous endpoint is aligning the observation frames and calculating residuals.
         </p>
       )}
 
       {difference.isError && (
-        <div className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
+        <div role="alert" className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
           {difference.error?.message || 'Difference request failed.'}
-          <button className="ml-3 underline" onClick={() => difference.reset()}>
+          <button type="button" className="ml-3 underline" onClick={() => difference.reset()}>
             Dismiss
           </button>
         </div>
       )}
 
-      {difference.data && (
+      {jobFallbackMessage && (
+        <p className="text-xs text-observatory-muted">{jobFallbackMessage}</p>
+      )}
+
+      {result && (
         <div className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="rounded-full bg-violet-500/15 px-3 py-1 text-xs text-violet-300">
-              {difference.data.candidates.length} potential detections
+              {result.candidates.length} potential detections
             </span>
             <span className="font-mono text-xs text-observatory-muted">
-              {difference.data.shape_ny_nx.join(' × ')} pixels
+              {result.shape_ny_nx.join(' × ')} pixels
             </span>
           </div>
 
           <SynchronizedDifferenceViewer
             earlierUrl={earlier.preview_png_url}
             laterUrl={later.preview_png_url}
-            differenceUrl={difference.data.difference_png_url}
-            shapeNyNx={difference.data.shape_ny_nx}
-            selectedCandidate={difference.data.candidates.find(
+            differenceUrl={result.difference_png_url}
+            shapeNyNx={result.shape_ny_nx}
+            selectedCandidate={result.candidates.find(
               (candidate) => candidate.candidate_id === selectedCandidateId,
             )}
           />
@@ -126,14 +248,14 @@ export default function DifferenceAnalysis({
             the backend returns those fields.
           </div>
 
-          {difference.data.candidates.length === 0 ? (
+          {result.candidates.length === 0 ? (
             <div className="rounded-xl border border-dashed border-observatory-border p-5 text-sm text-observatory-muted">
               The backend returned no potential detections for this pair.
             </div>
           ) : (
             <div className="space-y-3">
               <h3 className="font-semibold">Potential detections</h3>
-              {difference.data.candidates.map((candidate) => (
+              {result.candidates.map((candidate) => (
                 <button
                   type="button"
                   key={candidate.candidate_id}
