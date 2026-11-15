@@ -117,7 +117,14 @@ export default function TargetGrid() {
             <p>RA&nbsp;&nbsp; {target.ra}</p>
             <p>Dec&nbsp; {target.dec}</p>
           </div>
-          <p className="mt-4 text-xs font-semibold text-observatory-cyan">
+          {import.meta.env.VITE_USE_MOCKS === 'true' && (
+            <p className="mt-3 text-[11px] text-observatory-muted">
+              {target.id === 'wise-0855'
+                ? 'Verified observation fixture available'
+                : 'Preset coordinates available · observation export pending'}
+            </p>
+          )}
+          <p className="mt-2 text-xs font-semibold text-observatory-cyan">
             Explore target →
           </p>
         </button>

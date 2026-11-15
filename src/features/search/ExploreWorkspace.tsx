@@ -14,6 +14,7 @@ import ObservationTimeline from './ObservationTimeline'
 import { searchParamsSchema } from './searchParams'
 import PanelErrorBoundary from './PanelErrorBoundary'
 import { useExplorerStore } from '@/store/explorerStore'
+import { resolveApiAssetUrl } from '@/api/resolveApiAssetUrl'
 
 function readOpacityParameter(params: URLSearchParams, key: string): number {
   const value = params.get(key)
@@ -373,7 +374,7 @@ export default function ExploreWorkspace() {
         <div className="space-y-5">
           <PanelErrorBoundary panelName="Sky viewer">
             <SkyViewer
-              imageUrl={selectedFrame.preview_png_url}
+              imageUrl={resolveApiAssetUrl(selectedFrame.preview_png_url)}
               targetPx={selectedFrame.target_px}
               title={selectedFrame.obs_id}
               onIdentify={identifyAt}

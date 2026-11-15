@@ -3,6 +3,7 @@ import { useDifferenceImage } from '@/api/hooks/useDifferenceImage'
 import { useDifferenceJob } from '@/api/hooks/useDifferenceJob'
 import type { components } from '@/api/schema'
 import SynchronizedDifferenceViewer from './SynchronizedDifferenceViewer'
+import { resolveApiAssetUrl } from '@/api/resolveApiAssetUrl'
 
 type ObservationFrame = components['schemas']['ObservationFrame']
 type Props = {
@@ -230,9 +231,9 @@ export default function DifferenceAnalysis({
           </div>
 
           <SynchronizedDifferenceViewer
-            earlierUrl={earlier.preview_png_url}
-            laterUrl={later.preview_png_url}
-            differenceUrl={result.difference_png_url}
+            earlierUrl={resolveApiAssetUrl(earlier.preview_png_url)}
+            laterUrl={resolveApiAssetUrl(later.preview_png_url)}
+            differenceUrl={resolveApiAssetUrl(result.difference_png_url)}
             shapeNyNx={result.shape_ny_nx}
             selectedCandidate={result.candidates.find(
               (candidate) => candidate.candidate_id === selectedCandidateId,
