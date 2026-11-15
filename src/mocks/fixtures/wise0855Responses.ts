@@ -4,6 +4,7 @@ import { wise0855Search } from './wise0855Search'
 type Source = components['schemas']['SourceIdentificationResponse']
 type OverlayResponse = components['schemas']['OverlayResponse']
 type DifferenceResponse = components['schemas']['DifferenceResponse']
+type BackendV21DifferenceResponse = DifferenceResponse & { significance_png_url: string }
 type IsolateResponse = components['schemas']['IsolateResponse']
 type IsolatedEpochFrame = components['schemas']['IsolatedEpochFrame']
 type BackendV21IsolatedEpochFrame = IsolatedEpochFrame & {
@@ -149,7 +150,7 @@ export const wise0855Difference = {
       },
     },
   ],
-} satisfies DifferenceResponse
+} satisfies BackendV21DifferenceResponse
 
 // Backend-provided POST /api/objects/isolate sample. The two follow-object PNG
 // URLs are optional v2.1 response extensions from the teammate's actual sample;
