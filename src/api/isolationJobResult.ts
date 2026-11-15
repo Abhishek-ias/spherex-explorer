@@ -1,8 +1,4 @@
 import { z } from 'zod'
-import type { components } from '@/api/schema'
-
-type IsolateResponse = components['schemas']['IsolateResponse']
-
 const pixelPointSchema = z.object({
   x: z.number(),
   y: z.number(),
