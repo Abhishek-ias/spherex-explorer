@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import type { components } from '@/api/schema'
+
+type DifferenceResponse = components['schemas']['DifferenceResponse']
 const pixelPointSchema = z.object({
   x: z.number(),
   y: z.number(),
@@ -47,7 +50,7 @@ export const differenceResponseSchema = z.object({
   candidates: z.array(differenceCandidateSchema),
 })
 
-export type ParsedDifferenceResponse = z.infer<typeof differenceResponseSchema>
+export type ParsedDifferenceResponse = z.infer<typeof differenceResponseSchema> & DifferenceResponse
 
 export function parseDifferenceJobResult(value: unknown): ParsedDifferenceResponse | null {
   const parsed = differenceResponseSchema.safeParse(value)

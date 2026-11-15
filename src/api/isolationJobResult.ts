@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import type { components } from '@/api/schema'
+
+type IsolateResponse = components['schemas']['IsolateResponse']
 const pixelPointSchema = z.object({
   x: z.number(),
   y: z.number(),
@@ -45,7 +48,7 @@ export const isolateResponseSchema = z.object({
   apparent_motion_arcsec_per_yr: z.number(),
 })
 
-export type ParsedIsolationResponse = z.infer<typeof isolateResponseSchema>
+export type ParsedIsolationResponse = z.infer<typeof isolateResponseSchema> & IsolateResponse
 
 export function parseIsolationJobResult(value: unknown): ParsedIsolationResponse | null {
   const parsed = isolateResponseSchema.safeParse(value)

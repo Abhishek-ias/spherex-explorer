@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   clampDifferenceZoom,
   getDifferenceImageAspectRatio,
+  getSignificanceImageUrl,
   nextBlinkEpoch,
 } from './differenceViewerUtils'
 
