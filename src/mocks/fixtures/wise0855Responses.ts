@@ -1,0 +1,178 @@
+import type { components } from '@/api/schema'
+import { wise0855Search } from './wise0855Search'
+
+type Source = components['schemas']['SourceIdentificationResponse']
+type OverlayResponse = components['schemas']['OverlayResponse']
+type DifferenceResponse = components['schemas']['DifferenceResponse']
+type IsolateResponse = components['schemas']['IsolateResponse']
+
+const frames = wise0855Search.epochs[0].observations
+export const wise0855EarlierFrame = frames[0]
+export const wise0855LaterFrame = frames[1]
+
+// Backend-provided POST /api/objects/identify response, limited to fields
+// present in the repository's current generated OpenAPI 2.0.0 contract.
+export const wise0855IdentifiedSource = {
+  object_id: 'SPX-133.79458-7.24542',
+  ra_deg: 133.79458,
+  dec_deg: -7.24542,
+  ra_hms: '08:55:10.699',
+  dec_dms: '-07:14:43.51',
+  fits_x: 72.814,
+  fits_y: 73.112,
+  png_x: 72.81,
+  png_y: 71.89,
+  target_px: { x: 72.81, y: 71.89 },
+  flux_mjy_sr: 1.84215,
+  flux_err_mjy_sr: 0.1421,
+  background_mjy_sr: 0.0412,
+  snr: 12.96,
+  quality_flag: 2097152,
+  is_usable: true,
+  wavelength_um: 4.8604,
+  bandwidth_um: 0.1185,
+  date_obs: '2025-05-08T12:14:00.000',
+  detector: '6',
+} satisfies Source
+
+// Backend-provided POST /api/overlays sample. Extra v2.1 coverage and WISE
+// image-layer fields are omitted until the actual v2.1 OpenAPI export is supplied.
+export const wise0855Overlays = {
+  image_shape_ny_nx: [146, 146],
+  spherex_obs_date: '2025-05-08T12:14:00.000',
+  target_px: { x: 72.5, y: 72.5 },
+  gaia_dr3_sources: [
+    {
+      source_id: '5746824674801810816',
+      ra_deg: 133.80124,
+      dec_deg: -7.24011,
+      ra_at_epoch_deg: 133.80119,
+      dec_at_epoch_deg: -7.24015,
+      pmra_mas_yr: -19.2,
+      pmdec_mas_yr: -15.4,
+      parallax_mas: 3.12,
+      g_mag: 14.82,
+      bp_rp: 1.15,
+      ref_epoch: 2016,
+      png_x: 68.92,
+      png_y: 69.58,
+      target_px: { x: 68.92, y: 69.58 },
+      frame_px: {
+        default: { x: 68.92, y: 69.58 },
+        '2025W19_1B_0116_2D6': { x: 68.92, y: 69.58 },
+      },
+    },
+  ],
+  wise_sources: [
+    {
+      designation: 'J085510.83-071442.5',
+      ra_deg: 133.795129,
+      dec_deg: -7.245147,
+      w1_mag: 17.82,
+      w2_mag: 14.02,
+      png_x: 72.5,
+      png_y: 72.5,
+      target_px: { x: 72.5, y: 72.5 },
+      frame_px: {
+        default: { x: 72.5, y: 72.5 },
+        '2025W19_1B_0116_2D6': { x: 72.5, y: 72.5 },
+      },
+    },
+  ],
+  csa_neossat_observations: [],
+  frame_overlays: {
+    default: {
+      frame_id: 'default',
+      image_shape_ny_nx: [146, 146],
+      target_px: { x: 72.5, y: 72.5 },
+      gaia_px: { '5746824674801810816': { x: 68.92, y: 69.58 } },
+      wise_px: { 'J085510.83-071442.5': { x: 72.5, y: 72.5 } },
+    },
+    '2025W19_1B_0116_2D6': {
+      frame_id: '2025W19_1B_0116_2D6',
+      image_shape_ny_nx: [146, 146],
+      target_px: { x: 72.5, y: 72.5 },
+      gaia_px: { '5746824674801810816': { x: 68.92, y: 69.58 } },
+      wise_px: { 'J085510.83-071442.5': { x: 72.5, y: 72.5 } },
+    },
+  },
+  wiseview_url:
+    'https://byw.tools/wiseview#ra=133.795129&dec=-7.245147&size=900&band=3&speed=125&minbright=-15&maxbright=120',
+} satisfies OverlayResponse
+
+// Backend-provided POST /api/images/difference sample, matching the current
+// v2.0 response contract. v2.1 significance_png_url is not part of our current
+// generated schema and is intentionally not added by hand.
+export const wise0855Difference = {
+  diff_key: '8f4b21a90c3e7d12',
+  difference_png_url: '/api/cache/diff_8f4b21a90c3e7d12.png',
+  early_date: '2025-05-08T12:14:00.000',
+  late_date: '2025-05-08T18:42:00.000',
+  shape_ny_nx: [146, 146],
+  target_px: { x: 72.5, y: 72.5 },
+  comparable_with: [
+    wise0855EarlierFrame.cutout_fits_url,
+    wise0855LaterFrame.cutout_fits_url,
+  ],
+  candidates: [
+    {
+      candidate_id: 'CAND-01',
+      residual_type: 'positive_later_brighter',
+      ra_deg: 133.79311,
+      dec_deg: -7.24519,
+      png_x: 73.68,
+      png_y: 72.52,
+      target_px: { x: 73.68, y: 72.52 },
+      peak_residual_mjy_sr: 0.9142,
+      significance_sigma: 6.45,
+      match: {
+        matched: true,
+        match_type: 'moving_dipole_pair',
+        counterpart_ra_deg: 133.79538,
+        counterpart_dec_deg: -7.24511,
+        counterpart_px: { x: 72.35, y: 72.48 },
+        separation_arcsec: 8.102,
+        apparent_motion_arcsec_yr: 8.081,
+      },
+    },
+  ],
+} satisfies DifferenceResponse
+
+// Backend-provided POST /api/objects/isolate sample, using only fields in the
+// repository's current generated OpenAPI 2.0.0 contract.
+export const wise0855Isolation = {
+  early_epoch_isolated: {
+    isolated_png_url: '/api/cache/isolated_c62d04923b470855.png',
+    target_px: { x: 72.81, y: 71.89 },
+    source_measurement: wise0855IdentifiedSource,
+  },
+  late_epoch_isolated: {
+    isolated_png_url: '/api/cache/isolated_91e3a10b44f82c10.png',
+    target_px: { x: 74.12, y: 71.95 },
+    source_measurement: {
+      object_id: 'SPX-133.79232-7.24552',
+      ra_deg: 133.79232,
+      dec_deg: -7.24552,
+      ra_hms: '08:55:10.157',
+      dec_dms: '-07:14:43.87',
+      fits_x: 74.121,
+      fits_y: 73.051,
+      png_x: 74.12,
+      png_y: 71.95,
+      target_px: { x: 74.12, y: 71.95 },
+      flux_mjy_sr: 1.8104,
+      flux_err_mjy_sr: 0.1398,
+      background_mjy_sr: 0.0408,
+      snr: 12.95,
+      quality_flag: 2097152,
+      is_usable: true,
+      wavelength_um: 4.8619,
+      bandwidth_um: 0.1186,
+      date_obs: '2026-05-09T10:20:00.000',
+      detector: '6',
+    },
+  },
+  angular_displacement_arcsec: 8.099,
+  time_baseline_days: 365.92,
+  apparent_motion_arcsec_per_yr: 8.084,
+} satisfies IsolateResponse
