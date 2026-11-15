@@ -1,6 +1,22 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import SpectrumAnalysis from './SpectrumAnalysis'
+
+function renderWithQueryClient(ui: ReactNode) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  })
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>,
+  )
+}
 
 const mocks = vi.hoisted(() => ({
   mutate: vi.fn(),
@@ -36,7 +52,7 @@ beforeEach(() => {
 
 describe('SpectrumAnalysis controls', () => {
   it('explains when fewer than two epochs are available', () => {
-    render(<SpectrumAnalysis ra={12} dec={-34} epochs={['epoch-1']} />)
+    renderWithQueryClient(<SpectrumAnalysis ra={12} dec={-34} epochs={['epoch-1']} />)
 
     expect(screen.getByText(/at least two survey epochs/i)).toBeInTheDocument()
     expect(screen.getByText(/Available epoch: epoch-1/)).toBeInTheDocument()
@@ -44,7 +60,7 @@ describe('SpectrumAnalysis controls', () => {
   })
 
   it('submits the selected epoch pair and configured request values', () => {
-    render(
+    renderWithQueryClient(
       <SpectrumAnalysis
         ra={153.18875}
         dec={-12.582417}
@@ -72,7 +88,7 @@ describe('SpectrumAnalysis controls', () => {
   })
 
   it('prevents selecting the same epoch for both sides', () => {
-    render(
+    renderWithQueryClient(
       <SpectrumAnalysis
         ra={10}
         dec={20}
@@ -93,7 +109,7 @@ describe('SpectrumAnalysis controls', () => {
     mocks.isError = true
     mocks.error = new Error('Spectrum comparison failed (503)')
 
-    render(
+    renderWithQueryClient(
       <SpectrumAnalysis
         ra={10}
         dec={20}
@@ -109,7 +125,7 @@ describe('SpectrumAnalysis controls', () => {
   it('disables the compare control while a request is pending', () => {
     mocks.isPending = true
 
-    render(
+    renderWithQueryClient(
       <SpectrumAnalysis
         ra={10}
         dec={20}
