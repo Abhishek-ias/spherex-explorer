@@ -6,8 +6,17 @@ import type { components } from '@/api/schema'
 type SearchRequest = components['schemas']['SearchRequest']
 type SearchResponse = components['schemas']['SearchResponse']
 type PresetTarget = components['schemas']['PresetTarget']
+type HealthResponse = components['schemas']['HealthResponse']
 
 export const handlers = [
+  http.get(`${API_BASE_URL}/api/health`, () =>
+    HttpResponse.json({
+      status: 'mock',
+      service: 'spherex-explorer',
+      version: '2.0.0',
+    } satisfies HealthResponse),
+  ),
+
   http.get(`${API_BASE_URL}/api/targets`, () => {
     // No preset target records have been supplied as mock fixtures yet.
     return HttpResponse.json([] satisfies PresetTarget[])

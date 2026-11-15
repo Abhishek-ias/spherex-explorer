@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { Orbit, Keyboard } from 'lucide-react'
+import ApiHealthIndicator from './ApiHealthIndicator'
 
 const navigation = [
   { label: 'Home', path: '/', end: true },
@@ -23,6 +24,7 @@ export default function AppLayout() {
           </NavLink>
 
           <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-6">
+            <ApiHealthIndicator />
             <nav aria-label="Main navigation" className="flex flex-wrap items-center gap-3 sm:gap-6">
               {navigation.map((item) => (
                 <NavLink
