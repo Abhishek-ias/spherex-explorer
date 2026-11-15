@@ -25,7 +25,8 @@ describe('parseDifferenceJobResult', () => {
   })
 
   it('accepts legacy v2.0 results without a significance map', () => {
-    const { significance_png_url: _ignored, ...legacy } = response
+    const legacy: Record<string, unknown> = { ...response }
+    delete legacy.significance_png_url
     expect(parseDifferenceJobResult(legacy)).not.toBeNull()
   })
 
