@@ -50,7 +50,7 @@ export default function ApiHealthIndicator() {
       <span aria-hidden="true" className={`h-2 w-2 rounded-full ${dotClass}`} />
       <span>{label}</span>
       {data?.version && (
-        <span className="font-mono text-[10px] opacity-70">v{data.version}</span>
+        <span className="font-mono text-[10px] text-slate-300">v{data.version}</span>
       )}
     </div>
   )
