@@ -52,8 +52,10 @@ export default function SkyViewer({
   const clickTimer = useRef<number | null>(null)
   const keyboardPoint = useRef({ x: 0.5, y: 0.5 })
   const keyboardFocus = useRef(false)
-  const [imageError, setImageError] = useState(false)
-  const [canvasUnavailable, setCanvasUnavailable] = useState(false)
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
+  const [canvasUnavailableUrl, setCanvasUnavailableUrl] = useState<string | null>(null)
+  const imageError = Boolean(imageUrl && failedImageUrl === imageUrl)
+  const canvasUnavailable = Boolean(imageUrl && canvasUnavailableUrl === imageUrl)
   const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => () => {
@@ -67,12 +69,10 @@ export default function SkyViewer({
     const context = canvas?.getContext('2d')
     if (!canvas) return
     if (!context) {
-      setCanvasUnavailable(true)
+      setCanvasUnavailableUrl(imageUrl)
       return
     }
 
-    setCanvasUnavailable(false)
-    setImageError(false)
     imageSize.current = { width: 0, height: 0 }
 
     let image: HTMLImageElement | null = null
@@ -93,7 +93,7 @@ export default function SkyViewer({
         context.font = '14px Inter, sans-serif'
         context.textAlign = 'center'
         context.fillText(
-          imageError ? 'Preview image unavailable' : 'Loading preview...',
+          'Loading preview...',
           width / 2,
           height / 2,
         )
@@ -209,12 +209,11 @@ export default function SkyViewer({
           width: image?.naturalWidth ?? 0,
           height: image?.naturalHeight ?? 0,
         }
-        setImageError(false)
         draw()
       }
       image.onerror = () => {
         loaded = false
-        setImageError(true)
+        setFailedImageUrl(imageUrl)
         draw()
       }
       image.src = imageUrl
@@ -295,7 +294,6 @@ export default function SkyViewer({
   }
 
   function retryPreview() {
-    setImageError(false)
     setRetryCount((count) => count + 1)
   }
 
@@ -427,7 +425,7 @@ export default function SkyViewer({
           aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Enter + - 0"
           onFocus={handleCanvasFocus}
           onBlur={handleCanvasBlur}
-          onKeyDown={handleCanvasKeyDown>
+          onKeyDown={handleCanvasKeyDown}>
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
