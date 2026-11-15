@@ -45,7 +45,7 @@ export default function AppLayout() {
               <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-observatory-border px-3 py-2 text-xs text-observatory-muted hover:border-observatory-cyan hover:text-observatory-text">
                 <Keyboard size={14} /> Shortcuts
               </summary>
-              <div className="absolute right-0 z-50 mt-2 w-72 rounded-xl border border-observatory-border bg-[#080f1c] p-4 shadow-2xl">
+              <div className="absolute right-0 z-50 mt-2 w-72 max-w-[calc(100vw-4rem)] rounded-xl border border-observatory-border bg-[#080f1c] p-4 shadow-2xl">
                 <h2 className="text-sm font-semibold">Keyboard shortcuts</h2>
                 <dl className="mt-3 space-y-2 text-xs">
                   <div className="flex justify-between gap-3"><dt className="text-observatory-muted">Focus sky viewer</dt><dd className="font-mono">+ / − / 0</dd></div>

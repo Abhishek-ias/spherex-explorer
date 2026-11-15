@@ -191,7 +191,7 @@ test('homepage and empty explorer do not overflow at key screen widths', async (
 
     await page.goto('/explore?ra=153.188750&dec=-12.582417&fov=15')
     const explorer = await page.evaluate(() => {
-      const viewport = document.documentElement.clientWidth
+      const viewport = window.innerWidth
       const overflowingElements = Array.from(document.body.querySelectorAll('*'))
         .map((element) => {
           const rect = element.getBoundingClientRect()
@@ -202,20 +202,31 @@ test('homepage and empty explorer do not overflow at key screen widths', async (
             left: Math.round(rect.left),
             right: Math.round(rect.right),
             width: Math.round(rect.width),
+            clientWidth: element.clientWidth,
             scrollWidth: element.scrollWidth,
           }
         })
-        .filter((element) => element.right > viewport + 1 || element.left < -1)
-        .slice(0, 12)
+        .filter((element) =>
+          element.right > viewport + 1 ||
+          element.left < -1 ||
+          element.scrollWidth > element.clientWidth + 1,
+        )
+        .sort((left, right) =>
+          (right.right - viewport) - (left.right - viewport),
+        )
+        .slice(0, 20)
 
       return {
         viewport,
-        content: document.documentElement.scrollWidth,
+        documentClientWidth: document.documentElement.clientWidth,
+        documentScrollWidth: document.documentElement.scrollWidth,
+        bodyScrollWidth: document.body.scrollWidth,
+        rootScrollWidth: document.getElementById('root')?.scrollWidth ?? 0,
         overflowingElements,
       }
     })
     expect(
-      explorer.content,
+      explorer.documentScrollWidth,
       `explorer overflow at ${width}px: ${JSON.stringify(explorer.overflowingElements)}`,
     ).toBeLessThanOrEqual(explorer.viewport)
     await expect(page.getByRole('heading', { name: 'No observations found' })).toBeVisible()
