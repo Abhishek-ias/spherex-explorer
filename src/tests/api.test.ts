@@ -56,6 +56,183 @@ describe('SPHEREx API integration', () => {
     expect(data).toBeUndefined()
   })
 
+  it('returns the backend-provided WISE 0855 source-identification measurement', async () => {
+    const { data, error, response } = await api.POST('/api/objects/identify', {
+      body: {
+        cutout_fits_url:
+          'https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W19_1B/l2b-v27-2026-197/6/level2_2025W19_1B_0116_2D6_spx_l2b-v27-2026-197.fits?center=133.795129,-7.245147d&size=0.2500',
+        click_x: 73,
+        click_y: 72,
+        rendered_width: 146,
+        rendered_height: 146,
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(error).toBeUndefined()
+    expect(data).toMatchObject({
+      object_id: 'SPX-133.79458-7.24542',
+      ra_deg: 133.79458,
+      dec_deg: -7.24542,
+      target_px: { x: 72.81, y: 71.89 },
+      flux_mjy_sr: 1.84215,
+      snr: 12.96,
+      quality_flag: 2097152,
+    })
+  })
+
+  it('returns backend-provided Gaia DR3 and WISE overlay positions', async () => {
+    const { data, error, response } = await api.POST('/api/overlays', {
+      body: {
+        cutout_fits_url:
+          'https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W19_1B/l2b-v27-2026-197/6/level2_2025W19_1B_0116_2D6_spx_l2b-v27-2026-197.fits?center=133.795129,-7.245147d&size=0.2500',
+        ra: 133.795129,
+        dec: -7.245147,
+        fov_arcmin: 15,
+        frame_cutout_urls: {
+          '2025W19_1B_0116_2D6':
+            'https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W19_1B/l2b-v27-2026-197/6/level2_2025W19_1B_0116_2D6_spx_l2b-v27-2026-197.fits?center=133.795129,-7.245147d&size=0.2500',
+        },
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(error).toBeUndefined()
+    expect(data?.gaia_dr3_sources[0]).toMatchObject({
+      source_id: '5746824674801810816',
+      png_x: 68.92,
+      png_y: 69.58,
+    })
+    expect(data?.wise_sources[0]).toMatchObject({
+      designation: 'J085510.83-071442.5',
+      w1_mag: 17.82,
+      w2_mag: 14.02,
+    })
+  })
+
+  it('returns the backend-provided WISE 0855 difference candidate', async () => {
+    const cutout =
+      'https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W19_1B/l2b-v27-2026-197/6/'
+    const query = '?center=133.795129,-7.245147d&size=0.2500'
+    const { data, error, response } = await api.POST('/api/images/difference', {
+      body: {
+        early_cutout_fits_url:
+          cutout + 'level2_2025W19_1B_0116_2D6_spx_l2b-v27-2026-197.fits' + query,
+        late_cutout_fits_url:
+          cutout + 'level2_2025W19_1B_0138_1D6_spx_l2b-v27-2026-197.fits' + query,
+        ra: 133.795129,
+        dec: -7.245147,
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(error).toBeUndefined()
+    expect(data).toMatchObject({
+      diff_key: '8f4b21a90c3e7d12',
+      difference_png_url: '/api/cache/diff_8f4b21a90c3e7d12.png',
+      candidates: [{
+        candidate_id: 'CAND-01',
+        significance_sigma: 6.45,
+        match: { matched: true, match_type: 'moving_dipole_pair' },
+      }],
+    })
+  })
+
+  it('returns the backend-provided two-epoch source isolation measurements', async () => {
+    const cutout =
+      'https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W19_1B/l2b-v27-2026-197/6/'
+    const query = '?center=133.795129,-7.245147d&size=0.2500'
+    const { data, error, response } = await api.POST('/api/objects/isolate', {
+      body: {
+        early_cutout_fits_url:
+          cutout + 'level2_2025W19_1B_0116_2D6_spx_l2b-v27-2026-197.fits' + query,
+        late_cutout_fits_url:
+          cutout + 'level2_2025W19_1B_0138_1D6_spx_l2b-v27-2026-197.fits' + query,
+        object_ra: 133.79458,
+        object_dec: -7.24542,
+        isolation_radius_pix: 4.5,
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(error).toBeUndefined()
+    expect(data).toMatchObject({
+      angular_displacement_arcsec: 8.099,
+      time_baseline_days: 365.92,
+      apparent_motion_arcsec_per_yr: 8.084,
+      early_epoch_isolated: {
+        isolated_png_url: '/api/cache/isolated_c62d04923b470855.png',
+      },
+      late_epoch_isolated: {
+        isolated_png_url: '/api/cache/isolated_91e3a10b44f82c10.png',
+      },
+    })
+  })
+
+  it('simulates the supplied background job lifecycle for a difference task', async () => {
+    const cutout =
+      'https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/2025W19_1B/l2b-v27-2026-197/6/'
+    const query = '?center=133.795129,-7.245147d&size=0.2500'
+    const payload = {
+      early_cutout_fits_url:
+        cutout + 'level2_2025W19_1B_0116_2D6_spx_l2b-v27-2026-197.fits' + query,
+      late_cutout_fits_url:
+        cutout + 'level2_2025W19_1B_0138_1D6_spx_l2b-v27-2026-197.fits' + query,
+      ra: 133.795129,
+      dec: -7.245147,
+    }
+
+    const submitted = await api.POST('/api/jobs', {
+      body: { job_type: 'difference_image', payload },
+    })
+    expect(submitted.response.status).toBe(200)
+    expect(submitted.data?.status).toBe('queued')
+    expect(submitted.data?.progress_pct).toBe(0)
+
+    const running = await api.GET('/api/jobs/{id}', {
+      params: { path: { id: submitted.data!.id } },
+    })
+    expect(running.data?.status).toBe('running')
+    expect(running.data?.progress_pct).toBe(20)
+
+    const completed = await api.GET('/api/jobs/{id}', {
+      params: { path: { id: submitted.data!.id } },
+    })
+    expect(completed.data?.status).toBe('completed')
+    expect(completed.data?.progress_pct).toBe(100)
+    expect(completed.data?.result).toMatchObject({
+      diff_key: '8f4b21a90c3e7d12',
+    })
+  })
+
+  it('simulates a failed job when no comparable observation pair exists', async () => {
+    const submitted = await api.POST('/api/jobs', {
+      body: {
+        job_type: 'difference_image',
+        payload: {
+          early_cutout_fits_url: 'https://example.test/early.fits',
+          late_cutout_fits_url: 'https://example.test/late.fits',
+          ra: 1,
+          dec: 1,
+        },
+      },
+    })
+    expect(submitted.response.status).toBe(200)
+    expect(submitted.data?.status).toBe('queued')
+
+    const running = await api.GET('/api/jobs/{id}', {
+      params: { path: { id: submitted.data!.id } },
+    })
+    expect(running.data?.status).toBe('running')
+
+    const failed = await api.GET('/api/jobs/{id}', {
+      params: { path: { id: submitted.data!.id } },
+    })
+    expect(failed.data?.status).toBe('failed')
+    expect(failed.data?.error).toContain('No comparable SPHEREx observation pair')
+    expect(failed.data?.result).toBeNull()
+  })
+
   it('returns a typed mock backend health response', async () => {
     const { data, error, response } = await api.GET('/api/health')
 
