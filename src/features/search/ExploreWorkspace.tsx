@@ -359,6 +359,7 @@ export default function ExploreWorkspace() {
             secondFrame={compareFrame}
           />
           <TrackingIsolation
+            key={`${selectedFrame.obs_id}-${compareFrame?.obs_id ?? 'none'}-${identify.data?.object_id ?? 'unselected'}`}
             firstFrame={selectedFrame}
             secondFrame={compareFrame}
             source={identify.data}

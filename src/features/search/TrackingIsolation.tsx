@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react'
+import { Pause, Play, SkipBack, SkipForward } from 'lucide-react'
 import { useIsolateObject } from '@/api/hooks/useIsolateObject'
 import type { components } from '@/api/schema'
+import { getNextSequenceIndex, normalizeSequenceIndex } from './isolationSequence'
 
 type ObservationFrame = components['schemas']['ObservationFrame']
 type Source = components['schemas']['SourceIdentificationResponse']
-
 type Props = {
   firstFrame?: ObservationFrame
   secondFrame?: ObservationFrame
@@ -16,11 +18,39 @@ export default function TrackingIsolation({
   source,
 }: Props) {
   const isolation = useIsolateObject()
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const [speed, setSpeed] = useState('1')
 
   const canIsolate =
     Boolean(firstFrame?.cutout_fits_url) &&
     Boolean(secondFrame?.cutout_fits_url) &&
     Boolean(source)
+
+  const sequence = isolation.data
+    ? [
+        {
+          label: 'Earlier isolated epoch',
+          frame: isolation.data.early_epoch_isolated,
+        },
+        {
+          label: 'Later isolated epoch',
+          frame: isolation.data.late_epoch_isolated,
+        },
+      ]
+    : []
+  const safeIndex = normalizeSequenceIndex(activeIndex, sequence.length)
+  const activeFrame = safeIndex >= 0 ? sequence[safeIndex] : undefined
+
+  useEffect(() => {
+    if (!playing || sequence.length < 2) return
+
+    const interval = window.setInterval(() => {
+      setActiveIndex((current) => getNextSequenceIndex(current, sequence.length))
+    }, Math.max(300, 1400 / Number(speed)))
+
+    return () => window.clearInterval(interval)
+  }, [playing, speed, sequence.length])
 
   function runIsolation() {
     if (!firstFrame || !secondFrame || !source) return
@@ -28,6 +58,9 @@ export default function TrackingIsolation({
     const early = firstFrame.mjd <= secondFrame.mjd ? firstFrame : secondFrame
     const late = firstFrame.mjd <= secondFrame.mjd ? secondFrame : firstFrame
 
+    setPlaying(false)
+    setActiveIndex(0)
+    isolation.reset()
     isolation.mutate({
       early_cutout_fits_url: early.cutout_fits_url,
       late_cutout_fits_url: late.cutout_fits_url,
@@ -38,7 +71,7 @@ export default function TrackingIsolation({
   }
 
   return (
-    <section className="space-y-5 rounded-2xl border border-observatory-border bg-observatory-surface p-5 sm:p-6">
+    <section id="tracking-isolation" className="space-y-5 rounded-2xl border border-observatory-border bg-observatory-surface p-5 sm:p-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-observatory-cyan">
           Phase 7 · Motion investigation
@@ -65,11 +98,15 @@ export default function TrackingIsolation({
           <p className="mt-1 text-xs text-observatory-muted">
             RA {source.ra_deg.toFixed(6)}° · Dec {source.dec_deg.toFixed(6)}°
           </p>
+          <p className="mt-1 text-xs text-observatory-muted">
+            Only backend-returned isolation cutouts are displayed.
+          </p>
         </div>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
         <button
+          type="button"
           onClick={runIsolation}
           disabled={!canIsolate || isolation.isPending}
           className="rounded-lg bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
@@ -77,19 +114,22 @@ export default function TrackingIsolation({
           {isolation.isPending ? 'Isolating source…' : 'Isolate across epochs'}
         </button>
         {isolation.isPending && (
-          <span className="text-xs text-observatory-muted">
+          <span role="status" className="text-xs text-observatory-muted">
             Processing is performed by the backend.
           </span>
         )}
       </div>
 
       {isolation.isError && (
-        <div className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
+        <div role="alert" className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
           {isolation.error?.message || 'Isolation request failed.'}
+          <button type="button" className="ml-3 underline" onClick={() => isolation.reset()}>
+            Dismiss
+          </button>
         </div>
       )}
 
-      {isolation.data && (
+      {isolation.data && activeFrame && (
         <div className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-3">
             {[
@@ -104,28 +144,110 @@ export default function TrackingIsolation({
             ))}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="overflow-hidden rounded-xl border border-observatory-border bg-[#050a16]">
-              <p className="border-b border-observatory-border px-4 py-3 text-sm font-semibold">
-                Earlier isolated epoch
-              </p>
+          <div className="overflow-hidden rounded-xl border border-observatory-border bg-[#050a16]">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-observatory-border px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold">{activeFrame.label}</p>
+                <p className="mt-1 text-xs text-observatory-muted">
+                  {activeFrame.frame.source_measurement.date_obs} · {activeFrame.frame.source_measurement.detector}
+                </p>
+              </div>
+              <span className="font-mono text-xs text-observatory-muted">
+                Frame {safeIndex + 1} / {sequence.length}
+              </span>
+            </div>
+            <div className="flex min-h-64 items-center justify-center p-4">
               <img
-                src={isolation.data.early_epoch_isolated.isolated_png_url}
-                alt="Backend isolated source in earlier epoch"
-                className="max-h-72 w-full object-contain"
+                src={activeFrame.frame.isolated_png_url}
+                alt={`${activeFrame.label}; backend isolated source ${source?.object_id ?? ''}`}
+                className="max-h-[440px] w-full object-contain"
               />
             </div>
-            <div className="overflow-hidden rounded-xl border border-observatory-border bg-[#050a16]">
-              <p className="border-b border-observatory-border px-4 py-3 text-sm font-semibold">
-                Later isolated epoch
-              </p>
-              <img
-                src={isolation.data.late_epoch_isolated.isolated_png_url}
-                alt="Backend isolated source in later epoch"
-                className="max-h-72 w-full object-contain"
-              />
+            <div className="grid gap-3 border-t border-observatory-border p-4 text-xs sm:grid-cols-3">
+              <div>
+                <p className="text-observatory-muted">Measured RA / Dec</p>
+                <p className="mt-1 font-mono">
+                  {activeFrame.frame.source_measurement.ra_deg.toFixed(6)}°, {activeFrame.frame.source_measurement.dec_deg.toFixed(6)}°
+                </p>
+              </div>
+              <div>
+                <p className="text-observatory-muted">Flux (MJy/sr)</p>
+                <p className="mt-1 font-mono">{activeFrame.frame.source_measurement.flux_mjy_sr}</p>
+              </div>
+              <div>
+                <p className="text-observatory-muted">SNR</p>
+                <p className="mt-1 font-mono">{activeFrame.frame.source_measurement.snr.toFixed(2)}</p>
+              </div>
             </div>
           </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              aria-label="Previous isolated epoch"
+              disabled={safeIndex === 0}
+              onClick={() => {
+                setPlaying(false)
+                setActiveIndex(0)
+              }}
+              className="rounded-lg border border-observatory-border p-2 disabled:opacity-35"
+            >
+              <SkipBack size={16} />
+            </button>
+            <button
+              type="button"
+              aria-label={playing ? 'Pause isolated sequence' : 'Play isolated sequence'}
+              onClick={() => setPlaying((value) => !value)}
+              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"
+            >
+              {playing ? <Pause size={15} /> : <Play size={15} />}
+              {playing ? 'Pause' : 'Play sequence'}
+            </button>
+            <button
+              type="button"
+              aria-label="Next isolated epoch"
+              disabled={safeIndex >= sequence.length - 1}
+              onClick={() => {
+                setPlaying(false)
+                setActiveIndex(1)
+              }}
+              className="rounded-lg border border-observatory-border p-2 disabled:opacity-35"
+            >
+              <SkipForward size={16} />
+            </button>
+            <label className="flex items-center gap-2 text-xs text-observatory-muted">
+              Playback speed
+              <select
+                value={speed}
+                onChange={(event) => setSpeed(event.target.value)}
+                className="rounded-lg border border-observatory-border bg-[#07101e] px-3 py-2 text-sm text-observatory-text"
+              >
+                <option value="0.5">0.5×</option>
+                <option value="1">1×</option>
+                <option value="2">2×</option>
+              </select>
+            </label>
+          </div>
+          <label className="block text-xs text-observatory-muted">
+            Isolated epoch
+            <input
+              type="range"
+              min="0"
+              max={sequence.length - 1}
+              step="1"
+              value={safeIndex}
+              onChange={(event) => {
+                setPlaying(false)
+                setActiveIndex(Number(event.target.value))
+              }}
+              aria-label="Select isolated epoch"
+              className="mt-2 w-full accent-violet-400"
+            />
+          </label>
+          <p className="text-xs text-observatory-muted">
+            This sequence contains exactly the two isolated frames returned by the backend.
+            No intermediate frames or synthetic motion measurements are generated.
+          </p>
         </div>
       )}
 
