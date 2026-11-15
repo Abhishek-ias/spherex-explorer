@@ -2,6 +2,7 @@ import Plotly from 'plotly.js-basic-dist-min'
 import createPlotlyComponent from 'react-plotly.js/factory'
 import type { components } from '@/api/schema'
 import { getFlaggedRawPoints } from './spectrumUtils'
+import { readQualityFlagLabels } from '@/api/backendV21'
 
 const Plot = createPlotlyComponent(Plotly)
 
@@ -26,7 +27,19 @@ const chartLayout = {
   legend: { orientation: 'h' as const, y: 1.15 },
 }
 
-export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
+type QualityFlagDefinition = { bit: number; label: string }
+
+type Props = {
+  result: SpectrumResult
+  fluxUnit?: string
+  qualityFlagDefinitions: ReadonlyArray<QualityFlagDefinition>
+}
+
+export default function SpectrumCharts({
+  result,
+  fluxUnit,
+  qualityFlagDefinitions,
+}: Props) {
   const earlier = result.earlier_epoch.channels_102
   const later = result.later_epoch?.channels_102 ?? []
   const difference = result.difference_spectrum_102
@@ -67,12 +80,15 @@ export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
       ? [{
           x: earlierFlagged.map((point) => point.wavelength_um),
           y: earlierFlagged.map((point) => point.flux),
-          customdata: earlierFlagged.map((point) => point.quality_flag),
+          customdata: earlierFlagged.map((point) => [
+            point.quality_flag,
+            readQualityFlagLabels(point.quality_flag, qualityFlagDefinitions).join(', ') || 'No backend label supplied',
+          ]),
           type: 'scatter' as const,
           mode: 'markers' as const,
           name: 'Earlier · non-zero quality flag',
           marker: { size: 9, color: '#f59e0b', symbol: 'x' },
-          hovertemplate: 'Wavelength %{x:.4f} μm<br>Flux %{y}<br>Quality flag %{customdata}<extra></extra>',
+          hovertemplate: 'Wavelength %{x:.4f} μm<br>Flux %{y}<br>Quality flag %{customdata[0]}<br>Meaning %{customdata[1]}<extra></extra>',
         }]
       : []),
     ...(result.later_epoch
@@ -101,15 +117,26 @@ export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
       ? [{
           x: laterFlagged.map((point) => point.wavelength_um),
           y: laterFlagged.map((point) => point.flux),
-          customdata: laterFlagged.map((point) => point.quality_flag),
+          customdata: laterFlagged.map((point) => [
+            point.quality_flag,
+            readQualityFlagLabels(point.quality_flag, qualityFlagDefinitions).join(', ') || 'No backend label supplied',
+          ]),
           type: 'scatter' as const,
           mode: 'markers' as const,
           name: 'Later · non-zero quality flag',
           marker: { size: 9, color: '#f59e0b', symbol: 'x' },
-          hovertemplate: 'Wavelength %{x:.4f} μm<br>Flux %{y}<br>Quality flag %{customdata}<extra></extra>',
+          hovertemplate: 'Wavelength %{x:.4f} μm<br>Flux %{y}<br>Quality flag %{customdata[0]}<br>Meaning %{customdata[1]}<extra></extra>',
         }]
       : []),
   ]
+
+  const fluxAxisLayout = {
+    ...chartLayout,
+    yaxis: {
+      ...chartLayout.yaxis,
+      title: { text: fluxUnit ? `Flux (${fluxUnit})` : 'Flux (unit not supplied)' },
+    },
+  }
 
   const differenceTrace = {
     x: difference.map((point) => point.wavelength_um),
@@ -140,7 +167,7 @@ export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
         <div role="img" aria-label="Earlier and later epoch flux plotted against wavelength. An equivalent data table follows below.">
         <Plot
           data={traces}
-          layout={{ ...chartLayout, height: 340 }}
+          layout={{ ...fluxAxisLayout, height: 340 }}
           config={{ responsive: true, displaylogo: false }}
           useResizeHandler
           style={{ width: '100%', height: '340px' }}
@@ -161,7 +188,7 @@ export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
         <Plot
           data={[differenceTrace]}
           layout={{
-            ...chartLayout,
+            ...fluxAxisLayout,
             height: 300,
             showlegend: false,
             yaxis: {

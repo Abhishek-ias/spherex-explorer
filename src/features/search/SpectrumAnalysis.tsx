@@ -1,6 +1,13 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { useSpectrumCompare } from '@/api/hooks/useSpectrumCompare'
 import { getChannelCoverage, getFlaggedRawPoints } from './spectrumUtils'
+import { useApiHealth } from '@/api/hooks/useHealth'
+import {
+  readFluxUnit,
+  readQualityFlagDefinitions,
+  readQualityFlagLabels,
+  readSourceV21Metadata,
+} from '@/api/backendV21'
 
 const SpectrumCharts = lazy(() => import('./SpectrumCharts'))
 
@@ -14,6 +21,9 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
   const [earlier, setEarlier] = useState(epochs[0] ?? '')
   const [later, setLater] = useState(epochs[1] ?? '')
   const spectrum = useSpectrumCompare()
+  const health = useApiHealth()
+  const qualityFlagDefinitions = readQualityFlagDefinitions(health.data)
+  const fluxUnit = readFluxUnit(spectrum.data)
 
   const validEarlier = epochs.includes(earlier) ? earlier : epochs[0] ?? ''
   const validLater = epochs.includes(later) ? later : epochs[1] ?? ''
@@ -209,15 +219,16 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
                 </button>
               </div>
 
-              <p className="text-xs text-amber-300">
-                The API schema does not specify a flux unit. Values are displayed
-                as returned; no unit conversion is applied.
+              <p className={fluxUnit ? 'text-xs text-observatory-muted' : 'text-xs text-amber-300'}>
+                {fluxUnit
+                  ? `Flux unit reported by the backend: ${fluxUnit}. Values are displayed as returned; no unit conversion is applied.`
+                  : 'The backend did not provide flux_unit. Values are displayed as returned without a unit label or conversion.'}
               </p>
 
               <Suspense fallback={
                 <div className="h-72 animate-pulse rounded-xl bg-[#080f1c]" />
               }>
-                <SpectrumCharts result={spectrum.data} />
+                <SpectrumCharts result={spectrum.data} fluxUnit={fluxUnit} qualityFlagDefinitions={qualityFlagDefinitions} />
               </Suspense>
 
               <details className="overflow-hidden rounded-xl border border-observatory-border">
@@ -225,8 +236,9 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
                   Quality-flagged raw measurements ({summaries?.flagged.length ?? 0})
                 </summary>
                 <p className="px-4 pt-3 text-xs text-observatory-muted">
-                  Numeric quality flags are shown exactly as returned by the backend.
-                  The current API schema does not define a flag-code legend.
+                  {qualityFlagDefinitions.length > 0
+                    ? 'Flag meanings below are decoded using the backend-provided health dictionary.'
+                    : 'Numeric quality flags are shown exactly as returned. The backend did not provide a flag-code dictionary.'}
                 </p>
                 {summaries?.flagged.length ? (
                   <div
@@ -245,10 +257,17 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
                           <th className="p-3">Flux</th>
                           <th className="p-3">SNR</th>
                           <th className="p-3">Quality flag</th>
+                          <th className="p-3">Backend flag labels</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {summaries.flagged.map(({ epochId, point }, index) => (
+                        {summaries.flagged.map(({ epochId, point }, index) => {
+                          const suppliedLabels = readSourceV21Metadata(point).flagLabels
+                          const flagLabels = suppliedLabels?.length
+                            ? suppliedLabels
+                            : readQualityFlagLabels(point.quality_flag, qualityFlagDefinitions)
+
+                          return (
                           <tr key={`${epochId}-${point.obs_id}-${point.mjd}-${point.wavelength_um}-${index}`} className="border-t border-observatory-border">
                             <td className="p-3">{epochId}</td>
                             <td className="p-3 whitespace-nowrap">{new Date(point.date_iso).toLocaleDateString()}</td>
@@ -257,8 +276,12 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
                             <td className="p-3 font-mono">{point.flux}</td>
                             <td className="p-3 font-mono">{point.snr.toFixed(2)}</td>
                             <td className="p-3"><span className="rounded bg-amber-500/10 px-2 py-1 text-amber-300">{point.quality_flag}</span></td>
+                            <td className="p-3 text-observatory-muted">
+                              {flagLabels.length > 0 ? flagLabels.join(', ') : 'No backend label supplied'}
+                            </td>
                           </tr>
-                        ))}
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>

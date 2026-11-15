@@ -156,3 +156,27 @@ describe('v2.1 quality flag definitions', () => {
     expect(readQualityFlagDefinitions({ status: 'ok' })).toEqual([])
   })
 })
+
+
+describe('backend-provided spectral metadata', () => {
+  it('reads a supplied flux unit without inventing a fallback', async () => {
+    const { readFluxUnit } = await import('./backendV21')
+    expect(readFluxUnit({ flux_unit: 'MJy/sr' })).toBe('MJy/sr')
+    expect(readFluxUnit({})).toBeUndefined()
+    expect(readFluxUnit({ flux_unit: 12 })).toBeUndefined()
+  })
+
+  it('decodes quality-flag bits using only the backend health dictionary', async () => {
+    const { readQualityFlagLabels } = await import('./backendV21')
+    const definitions = [
+      { bit: 21, label: 'SOURCE' },
+      { bit: 0, label: 'TRANSIENT' },
+      { bit: 2, label: 'SATURATED' },
+    ]
+    expect(readQualityFlagLabels(2097152, definitions)).toEqual(['SOURCE'])
+    expect(readQualityFlagLabels(5, definitions)).toEqual(['TRANSIENT', 'SATURATED'])
+    expect(readQualityFlagLabels(0, definitions)).toEqual([])
+    expect(readQualityFlagLabels(-1, definitions)).toEqual([])
+    expect(readQualityFlagLabels(1.5, definitions)).toEqual([])
+  })
+})

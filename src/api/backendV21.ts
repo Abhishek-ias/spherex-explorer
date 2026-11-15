@@ -213,3 +213,27 @@ export function readQualityFlagDefinitions(value: unknown): Array<{
     })
     .sort((left, right) => left.bit - right.bit)
 }
+
+
+export function readFluxUnit(value: unknown): string | undefined {
+  const source = record(value)
+  return source ? nonEmptyString(source.flux_unit) : undefined
+}
+
+export function readQualityFlagLabels(
+  value: unknown,
+  definitions: ReadonlyArray<{ bit: number; label: string }>,
+): string[] {
+  const flag = finiteNumber(value)
+  if (flag === undefined || !Number.isSafeInteger(flag) || flag < 0) return []
+
+  return definitions
+    .filter(({ bit }) =>
+      Number.isInteger(bit) &&
+      bit >= 0 &&
+      bit <= 52 &&
+      Math.floor(flag / (2 ** bit)) % 2 === 1
+    )
+    .sort((left, right) => left.bit - right.bit)
+    .map(({ label }) => label)
+}
