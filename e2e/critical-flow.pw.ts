@@ -127,7 +127,7 @@ test('coordinate inputs expose keyboard focus and associated validation feedback
   await ra.fill('400')
 
   await expect(ra).toHaveAttribute('aria-invalid', 'true')
-  await expect(ra).toHaveAttribute('aria-describedby', 'ra-error')
+  await expect(ra).toHaveAttribute('aria-describedby', 'coordinate-search-help ra-error')
   await expect(page.locator('#ra-error')).toHaveText('Coordinate is outside the allowed range.')
   await expect(page.getByRole('button', { name: 'Search' })).toBeDisabled()
 })
@@ -190,11 +190,34 @@ test('homepage and empty explorer do not overflow at key screen widths', async (
     expect(home.content, `homepage overflow at ${width}px`).toBeLessThanOrEqual(home.viewport)
 
     await page.goto('/explore?ra=153.188750&dec=-12.582417&fov=15')
-    const explorer = await page.evaluate(() => ({
-      viewport: document.documentElement.clientWidth,
-      content: document.documentElement.scrollWidth,
-    }))
-    expect(explorer.content, `explorer overflow at ${width}px`).toBeLessThanOrEqual(explorer.viewport)
+    const explorer = await page.evaluate(() => {
+      const viewport = document.documentElement.clientWidth
+      const overflowingElements = Array.from(document.body.querySelectorAll('*'))
+        .map((element) => {
+          const rect = element.getBoundingClientRect()
+          return {
+            tag: element.tagName.toLowerCase(),
+            id: element.id,
+            className: typeof element.className === 'string' ? element.className : '',
+            left: Math.round(rect.left),
+            right: Math.round(rect.right),
+            width: Math.round(rect.width),
+            scrollWidth: element.scrollWidth,
+          }
+        })
+        .filter((element) => element.right > viewport + 1 || element.left < -1)
+        .slice(0, 12)
+
+      return {
+        viewport,
+        content: document.documentElement.scrollWidth,
+        overflowingElements,
+      }
+    })
+    expect(
+      explorer.content,
+      `explorer overflow at ${width}px: ${JSON.stringify(explorer.overflowingElements)}`,
+    ).toBeLessThanOrEqual(explorer.viewport)
     await expect(page.getByRole('heading', { name: 'No observations found' })).toBeVisible()
   }
 })

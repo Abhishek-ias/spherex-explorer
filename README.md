@@ -40,16 +40,16 @@ npm run build
 
 ## Browser end-to-end tests
 
-Install the Chromium browser once:
+Install the browser engines used by the Playwright project matrix:
 
 ```powershell
-npx playwright install chromium
+npx playwright install chromium firefox webkit
 npm run test:e2e
 ```
 
-The Playwright suite runs against the Vite development server with MSW enabled. It covers coordinate validation, FOV options, search URL parameters, the expected empty mock response, navigation, the guided tour, mobile/tablet overflow, and reduced-motion preferences.
+The Playwright suite runs against the Vite development server with MSW enabled. It covers coordinate validation, FOV options, search URL parameters, navigation, guided-tour controls, skip navigation, keyboard form use, responsive overflow at 320/375/768/1024/1366/1920 px, and reduced-motion preferences. A separate axe-core scan checks the homepage, About page and empty Explorer page against WCAG 2.1/2.2 A and AA rules. The axe script is loaded from a pinned CDN URL during that audit, so the test runner needs outbound network access to cdnjs.
 
-CI runs typecheck, ESLint, Vitest, Playwright Chromium tests, and the production build on pull requests to `main`.
+CI runs TypeScript, ESLint, Vitest, Playwright across Chromium/Firefox/WebKit, the axe-core audit, and the production build on pull requests to `main`.
 
 ## API contract workflow
 
