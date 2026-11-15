@@ -26,9 +26,23 @@ VITE_API_BASE_URL=
 VITE_ASSET_BASE_URL=
 ```
 
-Keep `VITE_USE_MOCKS=true` while the backend is unavailable. MSW intercepts API JSON on the frontend origin. Current mock data contains all five backend-provided preset target records and one verified WISE 0855 observation response; the other four targets are explicitly marked as awaiting observation exports. Do not commit `.env.development`.
+Keep `VITE_USE_MOCKS=true` while the backend is unavailable. MSW intercepts API JSON on the frontend origin. Current mock data contains all five backend-provided preset target records and one verified two-frame WISE 0855 response. Full 250-observation files for all five targets are referenced in the handoff ZIP; that ZIP is not included in the currently mounted uploads, so use the live backend for complete observation timelines. Do not commit `.env.development`.
 
-When the backend is reachable directly, set `VITE_USE_MOCKS=false` and `VITE_API_BASE_URL=http://localhost:8000` (or the backend host). To keep mocked JSON while loading genuine preview/cache PNGs from a backend host or Cloudflare tunnel, leave mocks enabled and set `VITE_ASSET_BASE_URL` to that backend origin.
+### Run against the live backend (recommended for the five NASA targets)
+
+Start the backend on the same machine, then use:
+
+```env
+VITE_USE_MOCKS=false
+VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_ASSET_BASE_URL=
+```
+
+The backend handoff confirms `GET /api/targets` and `POST /api/search` return the five benchmark targets with 250 Level-2 observation records and multi-epoch coverage. The live backend is the source for those full observation timelines; do not mistake the limited MSW fixtures for the complete NASA sample archive.
+
+For a backend running on another computer, replace `127.0.0.1` with its LAN IP and ensure FastAPI is reachable from the frontend machine. The handoff confirms CORS is enabled. Preview and generated `/api/cache/*.png` URLs are resolved against `VITE_API_BASE_URL`.
+
+To keep mocked JSON while loading genuine preview/cache PNGs from a backend host or Cloudflare tunnel, leave mocks enabled and set `VITE_ASSET_BASE_URL` to that backend origin.
 
 ## Quality checks
 

@@ -1,6 +1,8 @@
 
 import { describe, expect, it } from 'vitest'
 import { api } from '@/api/client'
+import { getWiseImageLayerUrl } from '@/features/search/overlayResourceUtils'
+import { readOverlayV21Metadata } from '@/api/backendV21'
 
 describe('SPHEREx API integration', () => {
   it('returns all five backend-provided preset target records', async () => {
@@ -107,6 +109,14 @@ describe('SPHEREx API integration', () => {
       designation: 'J085510.83-071442.5',
       w1_mag: 17.82,
       w2_mag: 14.02,
+    })
+    expect(getWiseImageLayerUrl(data)).toBe(
+      '/api/cache/wise_layer_a1b2c3d4e5f67890.png',
+    )
+    expect(readOverlayV21Metadata(data)).toEqual({
+      coverageFraction: undefined,
+      coverageComplete: undefined,
+      coverageWarning: undefined,
     })
   })
 
