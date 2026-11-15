@@ -33,8 +33,8 @@ test('WISE 0855 opens its verified two-frame observation workspace', async ({ pa
   await expect(page.getByText(/2 observations/)).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Observation timeline' })).toBeVisible()
   await expect(page.getByText('2 of 2 frames')).toBeVisible()
-  await expect(page.getByText('2025W19_1B_0116_2D6')).toBeVisible()
-  await expect(page.getByText('2025W19_1B_0138_1D6')).toBeVisible()
+  await expect(page.getByText('2025W19_1B_0116_2D6').first()).toBeVisible()
+  await expect(page.getByText('2025W19_1B_0138_1D6').first()).toBeVisible()
 })
 
 test('preset without observation export reports the backend fixture gap', async ({ page }) => {
