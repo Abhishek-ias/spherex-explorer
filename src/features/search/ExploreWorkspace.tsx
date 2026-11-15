@@ -57,19 +57,11 @@ export default function ExploreWorkspace() {
     }
   }, [shareId, serverShare.data, params, setParams])
 
-  const serverRestoreMessage = shareId
-    ? !serverSharingEnabled
-      ? 'This link contains a backend share ID. Connect to the live v2.1 API to retrieve saved state.'
-      : serverShare.isPending
-        ? 'Retrieving the backend-saved investigation…'
-        : serverShare.isError
-          ? serverShare.error.message
-          : serverShare.data
-            ? 'Backend share loaded. Coordinates, FOV and catalogue-layer visibility were restored; the handoff does not define epoch-name to observation-ID mapping.'
-            : ''
-    : ''
   const urlSelectedFrameId = params.get('frame') ?? ''
   const urlCompareFrameId = params.get('compare') ?? ''
+  const urlSelectedEpochId = params.get('epoch') ?? ''
+  const urlCompareEpochId = params.get('compareEpoch') ?? ''
+  const urlDetector = params.get('detector') ?? ''
   const urlTimelineBand = params.get('band') ?? 'all'
   const urlLayers = params.get('layers') ?? ''
   const urlGaiaOpacity = readOpacityParameter(params, 'gaiaOpacity')
@@ -77,6 +69,9 @@ export default function ExploreWorkspace() {
   const uiStateKey = JSON.stringify([
     urlSelectedFrameId,
     urlCompareFrameId,
+    urlSelectedEpochId,
+    urlCompareEpochId,
+    urlDetector,
     urlTimelineBand,
     urlLayers,
     urlGaiaOpacity,
@@ -140,7 +135,18 @@ export default function ExploreWorkspace() {
     [timelineEntries],
   )
 
-  const selectedFrame = frames.find((frame) => frame.obs_id === selectedId) ?? frames[0]
+  const detectorFrames = urlDetector
+    ? frames.filter((frame) => frame.detector === urlDetector)
+    : frames
+  const requestedEarlierFrame = urlSelectedEpochId
+    ? timelineEntries.find((entry) =>
+        entry.epochId === urlSelectedEpochId &&
+        (!urlDetector || entry.frame.detector === urlDetector),
+      )?.frame
+    : undefined
+  const selectedFrame = urlSelectedEpochId
+    ? requestedEarlierFrame ?? detectorFrames[0] ?? frames[0]
+    : detectorFrames.find((frame) => frame.obs_id === selectedId) ?? detectorFrames[0] ?? frames[0]
 
 
 
@@ -148,7 +154,15 @@ export default function ExploreWorkspace() {
     ? frames.filter((frame) => selectedFrame.comparable_with.includes(frame.obs_id))
     : []
 
-  const compareFrame = comparableFrames.find((frame) => frame.obs_id === compareId) ?? comparableFrames[0]
+  const requestedLaterFrame = urlCompareEpochId
+    ? timelineEntries.find((entry) =>
+        entry.epochId === urlCompareEpochId &&
+        comparableFrames.some((frame) => frame.obs_id === entry.frame.obs_id),
+      )?.frame
+    : undefined
+  const compareFrame = urlCompareEpochId
+    ? requestedLaterFrame ?? comparableFrames[0]
+    : comparableFrames.find((frame) => frame.obs_id === compareId) ?? comparableFrames[0]
   const selectedEpochId = timelineEntries.find(
     (entry) => entry.frame.obs_id === selectedFrame?.obs_id,
   )?.epochId ?? null
@@ -176,6 +190,41 @@ export default function ExploreWorkspace() {
           ],
         }
       : undefined
+  const restoredShareState = readRestoredInvestigationShareState(serverShare.data?.state)
+  const requestedDetectorAvailable =
+    !urlDetector || frames.some((frame) => frame.detector === urlDetector)
+  const requestedEarlierEpochAvailable =
+    !urlSelectedEpochId || timelineEntries.some((entry) =>
+      entry.epochId === urlSelectedEpochId &&
+      (!urlDetector || entry.frame.detector === urlDetector),
+    )
+  const requestedLaterEpochAvailable =
+    !urlCompareEpochId || timelineEntries.some((entry) =>
+      entry.epochId === urlCompareEpochId &&
+      comparableFrames.some((frame) => frame.obs_id === entry.frame.obs_id),
+    )
+  const serverRestoreMessage = shareId
+    ? !serverSharingEnabled
+      ? 'This link contains a backend share ID. Connect to the live v2.1 API to retrieve saved state.'
+      : serverShare.isPending
+        ? 'Retrieving the backend-saved investigation…'
+        : serverShare.isError
+          ? serverShare.error.message
+          : serverShare.data
+            ? [
+                'Backend share loaded.',
+                restoredShareState?.earlierEpoch ? `Earlier epoch: ${restoredShareState.earlierEpoch}.` : '',
+                restoredShareState?.laterEpoch ? `Later epoch: ${restoredShareState.laterEpoch}.` : '',
+                !requestedDetectorAvailable ? `Detector ${urlDetector} was not returned by this search.` : '',
+                !requestedEarlierEpochAvailable ? `Earlier epoch ${urlSelectedEpochId} is not present in the returned observations.` : '',
+                !requestedLaterEpochAvailable ? `Later epoch ${urlCompareEpochId} has no backend-approved comparable frame in this search.` : '',
+                restoredShareState?.selectedObjectRa !== undefined
+                  ? 'The share contains selected-object coordinates; restoring its source marker requires the backend source-lookup route.'
+                  : '',
+              ].filter(Boolean).join(' ')
+            : ''
+    : ''
+
   const selectedFrameMetadata = readObservationV21Metadata(selectedFrame)
   const sourceV21Metadata = readSourceV21Metadata(identify.data)
   const overlayV21Metadata = readOverlayV21Metadata(overlays.data)
@@ -206,6 +255,9 @@ export default function ExploreWorkspace() {
     uiStateKey,
     urlSelectedFrameId,
     urlCompareFrameId,
+    urlSelectedEpochId,
+    urlCompareEpochId,
+    urlDetector,
     urlTimelineBand,
     urlLayers,
     urlGaiaOpacity,
@@ -239,11 +291,27 @@ export default function ExploreWorkspace() {
 
     const next = new URLSearchParams(params)
 
-    if (selectedFrameId) next.set('frame', selectedFrameId)
+    if (urlSelectedEpochId) {
+      if (requestedEarlierFrame) {
+        next.set('frame', requestedEarlierFrame.obs_id)
+        next.delete('epoch')
+      } else {
+        next.delete('frame')
+      }
+    } else if (selectedFrameId) next.set('frame', selectedFrameId)
     else next.delete('frame')
 
-    if (compareFrameId) next.set('compare', compareFrameId)
+    if (urlCompareEpochId) {
+      if (requestedLaterFrame) {
+        next.set('compare', requestedLaterFrame.obs_id)
+        next.delete('compareEpoch')
+      } else {
+        next.delete('compare')
+      }
+    } else if (compareFrameId) next.set('compare', compareFrameId)
     else next.delete('compare')
+
+    if (urlDetector && requestedDetectorAvailable) next.delete('detector')
 
     if (timelineBand === 'all') next.delete('band')
     else next.set('band', timelineBand)
@@ -267,6 +335,12 @@ export default function ExploreWorkspace() {
   }, [
     selectedFrameId,
     compareFrameId,
+    requestedEarlierFrame?.obs_id,
+    requestedLaterFrame?.obs_id,
+    urlSelectedEpochId,
+    urlCompareEpochId,
+    urlDetector,
+    requestedDetectorAvailable,
     gaiaVisible,
     wiseVisible,
     timelineBand,

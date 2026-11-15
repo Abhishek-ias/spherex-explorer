@@ -82,6 +82,23 @@ export function applyRestoredShareToSearchParams(
   if (state.dec !== undefined) next.set('dec', String(state.dec))
   if (state.fovArcmin !== undefined) next.set('fov', String(state.fovArcmin))
 
+  if (state.detector !== undefined) {
+    if (state.detector) next.set('detector', state.detector)
+    else next.delete('detector')
+  }
+
+  if (state.earlierEpoch !== undefined || state.laterEpoch !== undefined) {
+    // Epoch names come from the backend response. The explorer resolves them
+    // against returned frames and only then converts them to observation IDs.
+    next.delete('frame')
+    next.delete('compare')
+    next.delete('obj')
+    if (state.earlierEpoch) next.set('epoch', state.earlierEpoch)
+    else next.delete('epoch')
+    if (state.laterEpoch) next.set('compareEpoch', state.laterEpoch)
+    else next.delete('compareEpoch')
+  }
+
   if (state.overlaysEnabled !== undefined) {
     const layers = [
       ...(state.overlaysEnabled.includes('gaia_dr3') ? ['gaia'] : []),

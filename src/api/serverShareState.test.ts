@@ -41,12 +41,13 @@ describe('server investigation share state', () => {
     })).toBeNull()
   })
 
-  it('restores coordinates, FOV and catalogue visibility while preserving other URL state', () => {
+  it('restores coordinates, FOV, detector and catalogue visibility while preserving non-conflicting URL state', () => {
     const current = new URLSearchParams('share=a91f4c82e0&frame=frame-1&band=all')
     const next = applyRestoredShareToSearchParams(current, {
       ra: 133.795129,
       dec: -7.245147,
       fovArcmin: 15,
+      detector: '6',
       overlaysEnabled: ['gaia_dr3', 'wise'],
     })
 
@@ -54,8 +55,38 @@ describe('server investigation share state', () => {
     expect(next.get('ra')).toBe('133.795129')
     expect(next.get('dec')).toBe('-7.245147')
     expect(next.get('fov')).toBe('15')
+    expect(next.get('detector')).toBe('6')
     expect(next.get('layers')).toBe('gaia,wise')
     expect(next.get('frame')).toBe('frame-1')
     expect(next.get('band')).toBe('all')
+  })
+
+  it('restores backend epoch names and clears stale frame/object selections', () => {
+    const current = new URLSearchParams(
+      'share=a91f4c82e0&frame=old-frame&compare=old-compare&obj=old-source&layers=gaia',
+    )
+    const next = applyRestoredShareToSearchParams(current, {
+      earlierEpoch: '2025-S1',
+      laterEpoch: '2026-S1',
+    })
+
+    expect(next.get('share')).toBe('a91f4c82e0')
+    expect(next.get('epoch')).toBe('2025-S1')
+    expect(next.get('compareEpoch')).toBe('2026-S1')
+    expect(next.has('frame')).toBe(false)
+    expect(next.has('compare')).toBe(false)
+    expect(next.has('obj')).toBe(false)
+    expect(next.get('layers')).toBe('gaia')
+  })
+
+  it('clears an epoch query when the backend share explicitly has no later epoch', () => {
+    const current = new URLSearchParams('epoch=stale&compareEpoch=stale-later')
+    const next = applyRestoredShareToSearchParams(current, {
+      earlierEpoch: '2025-S1',
+      laterEpoch: null,
+    })
+
+    expect(next.get('epoch')).toBe('2025-S1')
+    expect(next.has('compareEpoch')).toBe(false)
   })
 })
