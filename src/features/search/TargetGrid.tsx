@@ -1,5 +1,7 @@
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTargets } from '@/api/hooks/useTargets'
+import { filterPresetTargets } from './targetSearch'
 
 function TargetSkeleton() {
   return (
@@ -14,6 +16,11 @@ function TargetSkeleton() {
 export default function TargetGrid() {
   const { data, isPending, isError, error, refetch } = useTargets()
   const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+  const filteredTargets = useMemo(
+    () => filterPresetTargets(data ?? [], query),
+    [data, query],
+  )
 
   if (isPending) {
     return (
@@ -60,8 +67,29 @@ export default function TargetGrid() {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {data.map((target) => (
+    <div className="space-y-4">
+      <label className="block max-w-md text-sm">
+        <span className="mb-2 block font-medium">Find a preset target</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Filter by name, category, or description"
+          aria-label="Find a preset target"
+          className="w-full rounded-lg border border-observatory-border bg-[#07101e] px-3 py-3 text-sm text-observatory-text outline-none focus:border-observatory-cyan"
+        />
+      </label>
+      {filteredTargets.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-observatory-border bg-observatory-surface/50 p-7 text-center">
+          <p className="font-semibold">No matching preset targets</p>
+          <p className="mt-2 text-sm text-observatory-muted">
+            Try another name, category, or description. This filter searches only
+            the preset targets returned by the backend.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredTargets.map((target) => (
         <button
           key={target.id}
           onClick={() => {
@@ -89,11 +117,20 @@ export default function TargetGrid() {
             <p>RA&nbsp;&nbsp; {target.ra}</p>
             <p>Dec&nbsp; {target.dec}</p>
           </div>
-          <p className="mt-4 text-xs font-semibold text-observatory-cyan">
+          {import.meta.env.VITE_USE_MOCKS === 'true' && (
+            <p className="mt-3 text-[11px] text-observatory-muted">
+              {target.id === 'wise-0855'
+                ? 'Verified observation fixture available'
+                : 'Preset coordinates available · observation export pending'}
+            </p>
+          )}
+          <p className="mt-2 text-xs font-semibold text-observatory-cyan">
             Explore target →
           </p>
         </button>
-      ))}
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -52,7 +52,7 @@ export function parseRightAscension(input: string): ParseResult<number> {
   if (decimalPattern.test(value)) {
     const degrees = Number(value)
 
-    if (!Number.isFinite(degrees) || degrees < 0 || degrees > 360) {
+    if (!Number.isFinite(degrees) || degrees < 0 || degrees >= 360) {
       return failure('out_of_range')
     }
 
@@ -65,13 +65,10 @@ export function parseRightAscension(input: string): ParseResult<number> {
   const partsError = validateParts(parts)
   if (partsError) return failure(partsError)
 
-  if (parts.negative || parts.first > 24) {
+  if (parts.negative || parts.first >= 24) {
     return failure('out_of_range')
   }
 
-  if (parts.first === 24 && (parts.minutes !== 0 || parts.seconds !== 0)) {
-    return failure('out_of_range')
-  }
 
   const hours =
     parts.first + parts.minutes / 60 + parts.seconds / 3600

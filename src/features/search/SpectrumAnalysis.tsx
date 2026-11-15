@@ -1,5 +1,13 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { useSpectrumCompare } from '@/api/hooks/useSpectrumCompare'
+import { getChannelCoverage, getFlaggedRawPoints } from './spectrumUtils'
+import { useApiHealth } from '@/api/hooks/useHealth'
+import {
+  readFluxUnit,
+  readQualityFlagDefinitions,
+  readQualityFlagLabels,
+  readSourceV21Metadata,
+} from '@/api/backendV21'
 
 const SpectrumCharts = lazy(() => import('./SpectrumCharts'))
 
@@ -13,9 +21,33 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
   const [earlier, setEarlier] = useState(epochs[0] ?? '')
   const [later, setLater] = useState(epochs[1] ?? '')
   const spectrum = useSpectrumCompare()
+  const health = useApiHealth()
+  const qualityFlagDefinitions = readQualityFlagDefinitions(health.data)
+  const fluxUnit = readFluxUnit(spectrum.data)
 
   const validEarlier = epochs.includes(earlier) ? earlier : epochs[0] ?? ''
   const validLater = epochs.includes(later) ? later : epochs[1] ?? ''
+
+  const summaries = useMemo(() => {
+    if (!spectrum.data) return null
+    const earlierCoverage = getChannelCoverage(spectrum.data.earlier_epoch)
+    const laterCoverage = spectrum.data.later_epoch
+      ? getChannelCoverage(spectrum.data.later_epoch)
+      : null
+    const flagged = [
+      ...getFlaggedRawPoints(spectrum.data.earlier_epoch.raw_points).map((point) => ({
+        epochId: spectrum.data?.earlier_epoch.epoch_id ?? 'Earlier',
+        point,
+      })),
+      ...(spectrum.data.later_epoch
+        ? getFlaggedRawPoints(spectrum.data.later_epoch.raw_points).map((point) => ({
+            epochId: spectrum.data?.later_epoch?.epoch_id ?? 'Later',
+            point,
+          }))
+        : []),
+    ]
+    return { earlierCoverage, laterCoverage, flagged }
+  }, [spectrum.data])
 
   function exportCsv() {
     const result = spectrum.data
@@ -49,11 +81,11 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
     anchor.href = url
     anchor.download = 'spherex-spectrum-comparison.csv'
     anchor.click()
-    URL.revokeObjectURL(url)
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   return (
-    <section className="space-y-5 rounded-2xl border border-observatory-border bg-observatory-surface p-5 sm:p-6">
+    <section id="spectrum-analysis" className="space-y-5 rounded-2xl border border-observatory-border bg-observatory-surface p-5 sm:p-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-observatory-cyan">
           Phase 4 · Analysis
@@ -107,6 +139,7 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
                 !validLater ||
                 validEarlier === validLater
               }
+              type="button"
               onClick={() => spectrum.mutate({
                 ra,
                 dec,
@@ -125,9 +158,10 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
           )}
 
           {spectrum.isError && (
-            <div className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
+            <div role="alert" className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
               {spectrum.error.message}
               <button
+                type="button"
                 onClick={() => spectrum.reset()}
                 className="ml-3 underline"
               >
@@ -138,15 +172,45 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
 
           {spectrum.data && (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="rounded-full bg-violet-500/15 px-3 py-1 text-xs text-violet-300">
-                  {spectrum.data.earlier_epoch.channels_102.length} earlier channels
-                </span>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-observatory-border p-4">
+                  <p className="text-xs text-observatory-muted">
+                    Earlier epoch · {spectrum.data.earlier_epoch.epoch_id}
+                  </p>
+                  <p className="mt-2 font-heading text-xl font-semibold">
+                    {summaries?.earlierCoverage.available ?? 0} / 102 channels available
+                  </p>
+                  <p className="mt-1 text-xs text-observatory-muted">
+                    {summaries?.earlierCoverage.wavelengthMinUm !== null &&
+                    summaries?.earlierCoverage.wavelengthMaxUm !== null
+                      ? `${summaries?.earlierCoverage.wavelengthMinUm?.toFixed(3)}–${summaries?.earlierCoverage.wavelengthMaxUm?.toFixed(3)} μm coverage`
+                      : 'No measured wavelength coverage returned'}
+                  </p>
+                  <p className="mt-1 text-xs text-observatory-muted">
+                    {spectrum.data.earlier_epoch.raw_points.length} raw measurements · {getFlaggedRawPoints(spectrum.data.earlier_epoch.raw_points).length} non-zero quality flags
+                  </p>
+                </div>
                 {spectrum.data.later_epoch && (
-                  <span className="rounded-full bg-violet-500/15 px-3 py-1 text-xs text-violet-300">
-                    {spectrum.data.later_epoch.channels_102.length} later channels
-                  </span>
+                  <div className="rounded-xl border border-observatory-border p-4">
+                    <p className="text-xs text-observatory-muted">
+                      Later epoch · {spectrum.data.later_epoch.epoch_id}
+                    </p>
+                    <p className="mt-2 font-heading text-xl font-semibold">
+                      {summaries?.laterCoverage?.available ?? 0} / 102 channels available
+                    </p>
+                    <p className="mt-1 text-xs text-observatory-muted">
+                      {summaries?.laterCoverage?.wavelengthMinUm !== null &&
+                      summaries?.laterCoverage?.wavelengthMaxUm !== null
+                        ? `${summaries?.laterCoverage?.wavelengthMinUm?.toFixed(3)}–${summaries?.laterCoverage?.wavelengthMaxUm?.toFixed(3)} μm coverage`
+                        : 'No measured wavelength coverage returned'}
+                    </p>
+                    <p className="mt-1 text-xs text-observatory-muted">
+                      {spectrum.data.later_epoch.raw_points.length} raw measurements · {getFlaggedRawPoints(spectrum.data.later_epoch.raw_points).length} non-zero quality flags
+                    </p>
+                  </div>
                 )}
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <button
                   onClick={exportCsv}
                   className="rounded-lg border border-observatory-border px-4 py-2 text-xs hover:border-observatory-cyan"
@@ -155,16 +219,78 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
                 </button>
               </div>
 
-              <p className="text-xs text-amber-300">
-                The API schema does not specify a flux unit. Values are displayed
-                as returned; no unit conversion is applied.
+              <p className={fluxUnit ? 'text-xs text-observatory-muted' : 'text-xs text-amber-300'}>
+                {fluxUnit
+                  ? `Flux unit reported by the backend: ${fluxUnit}. Values are displayed as returned; no unit conversion is applied.`
+                  : 'The backend did not provide flux_unit. Values are displayed as returned without a unit label or conversion.'}
               </p>
 
               <Suspense fallback={
                 <div className="h-72 animate-pulse rounded-xl bg-[#080f1c]" />
               }>
-                <SpectrumCharts result={spectrum.data} />
+                <SpectrumCharts result={spectrum.data} fluxUnit={fluxUnit} qualityFlagDefinitions={qualityFlagDefinitions} />
               </Suspense>
+
+              <details className="overflow-hidden rounded-xl border border-observatory-border">
+                <summary className="cursor-pointer bg-[#080f1c] px-4 py-3 text-sm font-semibold">
+                  Quality-flagged raw measurements ({summaries?.flagged.length ?? 0})
+                </summary>
+                <p className="px-4 pt-3 text-xs text-observatory-muted">
+                  {qualityFlagDefinitions.length > 0
+                    ? 'Flag meanings below are decoded using the backend-provided health dictionary.'
+                    : 'Numeric quality flags are shown exactly as returned. The backend did not provide a flag-code dictionary.'}
+                </p>
+                {summaries?.flagged.length ? (
+                  <div
+                    role="region"
+                    aria-label="Quality-flagged raw measurement table"
+                    tabIndex={0}
+                    className="max-h-80 overflow-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-observatory-cyan"
+                  >
+                    <table aria-label="Raw spectral measurements with non-zero quality flags" className="w-full text-left text-xs">
+                      <thead className="sticky top-0 bg-observatory-surface text-observatory-muted">
+                        <tr>
+                          <th scope="col" className="p-3">Epoch</th>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Detector</th>
+                          <th className="p-3">Wavelength (μm)</th>
+                          <th className="p-3">Flux</th>
+                          <th className="p-3">SNR</th>
+                          <th className="p-3">Quality flag</th>
+                          <th className="p-3">Backend flag labels</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {summaries.flagged.map(({ epochId, point }, index) => {
+                          const suppliedLabels = readSourceV21Metadata(point).flagLabels
+                          const flagLabels = suppliedLabels?.length
+                            ? suppliedLabels
+                            : readQualityFlagLabels(point.quality_flag, qualityFlagDefinitions)
+
+                          return (
+                          <tr key={`${epochId}-${point.obs_id}-${point.mjd}-${point.wavelength_um}-${index}`} className="border-t border-observatory-border">
+                            <td className="p-3">{epochId}</td>
+                            <td className="p-3 whitespace-nowrap">{new Date(point.date_iso).toLocaleDateString()}</td>
+                            <td className="p-3 font-mono">{point.detector}</td>
+                            <td className="p-3 font-mono">{point.wavelength_um.toFixed(4)}</td>
+                            <td className="p-3 font-mono">{point.flux}</td>
+                            <td className="p-3 font-mono">{point.snr.toFixed(2)}</td>
+                            <td className="p-3"><span className="rounded bg-amber-500/10 px-2 py-1 text-amber-300">{point.quality_flag}</span></td>
+                            <td className="p-3 text-observatory-muted">
+                              {flagLabels.length > 0 ? flagLabels.join(', ') : 'No backend label supplied'}
+                            </td>
+                          </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="p-4 text-sm text-observatory-muted">
+                    No non-zero quality flags were returned for these raw measurements.
+                  </p>
+                )}
+              </details>
             </>
           )}
         </>

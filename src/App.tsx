@@ -1,8 +1,21 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { Component, Suspense, lazy, type ErrorInfo, type ReactNode } from 'react'
 import { Link, Route, Routes, useParams } from 'react-router-dom'
 import AppLayout from '@/components/layout/AppLayout'
-import HomePage from '@/features/search/HomePage'
-import ExploreWorkspace from '@/features/search/ExploreWorkspace'
+const HomePage = lazy(() => import('@/features/search/HomePage'))
+const ExploreWorkspace = lazy(() => import('@/features/search/ExploreWorkspace'))
+
+function RouteLoading({ page }: { page: string }) {
+  return (
+    <section
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      className="flex min-h-64 items-center justify-center rounded-xl border border-observatory-border bg-observatory-surface p-8 text-sm text-observatory-muted"
+    >
+      Loading {page}…
+    </section>
+  )
+}
 
 class PageErrorBoundary extends Component<
   { children: ReactNode },
@@ -123,8 +136,26 @@ export default function App() {
   return (
     <Routes>
       <Route element={<PageErrorBoundary><AppLayout /></PageErrorBoundary>}>
-        <Route index element={<PageErrorBoundary><HomePage /></PageErrorBoundary>} />
-        <Route path="explore" element={<PageErrorBoundary><ExploreWorkspace /></PageErrorBoundary>} />
+        <Route
+          index
+          element={
+            <PageErrorBoundary>
+              <Suspense fallback={<RouteLoading page="home page" />}>
+                <HomePage />
+              </Suspense>
+            </PageErrorBoundary>
+          }
+        />
+        <Route
+          path="explore"
+          element={
+            <PageErrorBoundary>
+              <Suspense fallback={<RouteLoading page="Explorer" />}>
+                <ExploreWorkspace />
+              </Suspense>
+            </PageErrorBoundary>
+          }
+        />
         <Route path="about" element={<PageErrorBoundary><AboutPage /></PageErrorBoundary>} />
         <Route path="d/:investigationId" element={<PageErrorBoundary><InvestigationRestorePage /></PageErrorBoundary>} />
         <Route path="*" element={<NotFoundPage />} />

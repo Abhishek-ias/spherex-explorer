@@ -2,6 +2,7 @@ import { ArrowRight, Orbit } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import CoordinateSearch from './CoordinateSearch'
 import TargetGrid from './TargetGrid'
+import GuidedTour from './GuidedTour'
 
 const steps = [
   ['01', 'Search', 'Choose a sky position or a preset target.'],
@@ -15,7 +16,7 @@ export default function HomePage() {
     <div className="relative isolate">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[520px] opacity-70"
+        className="starfield-glow pointer-events-none absolute inset-x-0 top-0 -z-10 h-[520px] opacity-70"
         style={{
           backgroundImage:
             'radial-gradient(ellipse at 75% 18%, rgba(109,40,217,.24), transparent 38%), radial-gradient(ellipse at 18% 35%, rgba(8,145,178,.15), transparent 35%), linear-gradient(180deg, rgba(9,15,31,.35), transparent)',
@@ -56,6 +57,7 @@ export default function HomePage() {
             Gaia and WISE context
           </span>
         </div>
+        <GuidedTour />
       </section>
 
       <section className="pb-10">

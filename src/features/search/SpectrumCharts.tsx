@@ -1,6 +1,8 @@
 import Plotly from 'plotly.js-basic-dist-min'
 import createPlotlyComponent from 'react-plotly.js/factory'
 import type { components } from '@/api/schema'
+import { getFlaggedRawPoints } from './spectrumUtils'
+import { readQualityFlagLabels } from '@/api/backendV21'
 
 const Plot = createPlotlyComponent(Plotly)
 
@@ -25,10 +27,26 @@ const chartLayout = {
   legend: { orientation: 'h' as const, y: 1.15 },
 }
 
-export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
+type QualityFlagDefinition = { bit: number; label: string }
+
+type Props = {
+  result: SpectrumResult
+  fluxUnit?: string
+  qualityFlagDefinitions: ReadonlyArray<QualityFlagDefinition>
+}
+
+export default function SpectrumCharts({
+  result,
+  fluxUnit,
+  qualityFlagDefinitions,
+}: Props) {
   const earlier = result.earlier_epoch.channels_102
   const later = result.later_epoch?.channels_102 ?? []
   const difference = result.difference_spectrum_102
+  const earlierFlagged = getFlaggedRawPoints(result.earlier_epoch.raw_points)
+  const laterFlagged = result.later_epoch
+    ? getFlaggedRawPoints(result.later_epoch.raw_points)
+    : []
 
   const earlierHasErrors = earlier.some(
     (point) => point.flux !== null && point.flux_err !== null,
@@ -58,6 +76,21 @@ export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
           }
         : undefined,
     },
+    ...(earlierFlagged.length > 0
+      ? [{
+          x: earlierFlagged.map((point) => point.wavelength_um),
+          y: earlierFlagged.map((point) => point.flux),
+          customdata: earlierFlagged.map((point) => [
+            point.quality_flag,
+            readQualityFlagLabels(point.quality_flag, qualityFlagDefinitions).join(', ') || 'No backend label supplied',
+          ]),
+          type: 'scatter' as const,
+          mode: 'markers' as const,
+          name: 'Earlier · non-zero quality flag',
+          marker: { size: 9, color: '#f59e0b', symbol: 'x' },
+          hovertemplate: 'Wavelength %{x:.4f} μm<br>Flux %{y}<br>Quality flag %{customdata[0]}<br>Meaning %{customdata[1]}<extra></extra>',
+        }]
+      : []),
     ...(result.later_epoch
       ? [{
           x: later.map((point) => point.wavelength_um),
@@ -80,7 +113,30 @@ export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
             : undefined,
         }]
       : []),
+    ...(laterFlagged.length > 0
+      ? [{
+          x: laterFlagged.map((point) => point.wavelength_um),
+          y: laterFlagged.map((point) => point.flux),
+          customdata: laterFlagged.map((point) => [
+            point.quality_flag,
+            readQualityFlagLabels(point.quality_flag, qualityFlagDefinitions).join(', ') || 'No backend label supplied',
+          ]),
+          type: 'scatter' as const,
+          mode: 'markers' as const,
+          name: 'Later · non-zero quality flag',
+          marker: { size: 9, color: '#f59e0b', symbol: 'x' },
+          hovertemplate: 'Wavelength %{x:.4f} μm<br>Flux %{y}<br>Quality flag %{customdata[0]}<br>Meaning %{customdata[1]}<extra></extra>',
+        }]
+      : []),
   ]
+
+  const fluxAxisLayout = {
+    ...chartLayout,
+    yaxis: {
+      ...chartLayout.yaxis,
+      title: { text: fluxUnit ? `Flux (${fluxUnit})` : 'Flux (unit not supplied)' },
+    },
+  }
 
   const differenceTrace = {
     x: difference.map((point) => point.wavelength_um),
@@ -97,31 +153,42 @@ export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-observatory-border bg-[#080f1c] p-3 sm:p-4">
+      <section
+        aria-labelledby="spectral-comparison-title"
+        aria-describedby="spectral-comparison-description"
+        className="rounded-xl border border-observatory-border bg-[#080f1c] p-3 sm:p-4"
+      >
         <div className="mb-2">
-          <h3 className="font-semibold">Spectral comparison</h3>
-          <p className="mt-1 text-xs text-observatory-muted">
-            Null channels remain gaps. No interpolation is performed.
+          <h3 id="spectral-comparison-title" className="font-semibold">Spectral comparison</h3>
+          <p id="spectral-comparison-description" className="mt-1 text-xs text-observatory-muted">
+            Null channels remain gaps. Orange × markers identify raw points with non-zero quality_flag values; the numeric codes are displayed without interpretation. No interpolation is performed.
           </p>
         </div>
+        <div role="img" aria-label="Earlier and later epoch flux plotted against wavelength. An equivalent data table follows below.">
         <Plot
           data={traces}
-          layout={{ ...chartLayout, height: 340 }}
+          layout={{ ...fluxAxisLayout, height: 340 }}
           config={{ responsive: true, displaylogo: false }}
           useResizeHandler
           style={{ width: '100%', height: '340px' }}
         />
-      </div>
+        </div>
+      </section>
 
-      <div className="rounded-xl border border-observatory-border bg-[#080f1c] p-3 sm:p-4">
-        <h3 className="font-semibold">Difference spectrum</h3>
-        <p className="mt-1 text-xs text-observatory-muted">
+      <section
+        aria-labelledby="difference-spectrum-title"
+        aria-describedby="difference-spectrum-description"
+        className="rounded-xl border border-observatory-border bg-[#080f1c] p-3 sm:p-4"
+      >
+        <h3 id="difference-spectrum-title" className="font-semibold">Difference spectrum</h3>
+        <p id="difference-spectrum-description" className="mt-1 text-xs text-observatory-muted">
           Backend-provided later-minus-earlier values for comparable channels.
         </p>
+        <div role="img" aria-label="Later minus earlier flux difference plotted against wavelength.">
         <Plot
           data={[differenceTrace]}
           layout={{
-            ...chartLayout,
+            ...fluxAxisLayout,
             height: 300,
             showlegend: false,
             yaxis: {
@@ -134,13 +201,19 @@ export default function SpectrumCharts({ result }: { result: SpectrumResult }) {
           useResizeHandler
           style={{ width: '100%', height: '300px' }}
         />
-      </div>
+        </div>
+      </section>
 
-      <div className="overflow-x-auto rounded-xl border border-observatory-border">
-        <table className="w-full text-left text-xs">
+      <div
+        role="region"
+        aria-label="Spectral channel comparison table"
+        tabIndex={0}
+        className="overflow-x-auto rounded-xl border border-observatory-border focus-visible:outline focus-visible:outline-2 focus-visible:outline-observatory-cyan"
+      >
+        <table aria-label="102-channel spectral comparison data" className="w-full text-left text-xs">
           <thead className="bg-observatory-surface text-observatory-muted">
             <tr>
-              <th className="p-3">Channel</th>
+              <th scope="col" className="p-3">Channel</th>
               <th className="p-3">Wavelength (μm)</th>
               <th className="p-3">Earlier flux</th>
               <th className="p-3">Later flux</th>

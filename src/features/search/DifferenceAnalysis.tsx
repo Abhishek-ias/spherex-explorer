@@ -1,5 +1,11 @@
+import { useState } from 'react'
 import { useDifferenceImage } from '@/api/hooks/useDifferenceImage'
+import { useDifferenceJob } from '@/api/hooks/useDifferenceJob'
 import type { components } from '@/api/schema'
+import SynchronizedDifferenceViewer from './SynchronizedDifferenceViewer'
+import { resolveApiAssetUrl } from '@/api/resolveApiAssetUrl'
+import { getSignificanceImageUrl } from './differenceViewerUtils'
+import { readDifferenceV21Metadata } from '@/api/backendV21'
 
 type ObservationFrame = components['schemas']['ObservationFrame']
 type Props = {
@@ -16,6 +22,24 @@ export default function DifferenceAnalysis({
   secondFrame,
 }: Props) {
   const difference = useDifferenceImage()
+  const job = useDifferenceJob()
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
+  const [jobFallbackMessage, setJobFallbackMessage] = useState('')
+
+  const result = job.result ?? difference.data
+  const resultV21Metadata = readDifferenceV21Metadata(result)
+  const jobPayload = firstFrame && secondFrame
+    ? {
+        early_cutout_fits_url: firstFrame.mjd <= secondFrame.mjd
+          ? firstFrame.cutout_fits_url
+          : secondFrame.cutout_fits_url,
+        late_cutout_fits_url: firstFrame.mjd <= secondFrame.mjd
+          ? secondFrame.cutout_fits_url
+          : firstFrame.cutout_fits_url,
+        ra,
+        dec,
+      }
+    : null
 
   if (!firstFrame || !secondFrame) {
     return (
@@ -37,7 +61,7 @@ export default function DifferenceAnalysis({
     earlier.obs_id !== later.obs_id
 
   return (
-    <section className="space-y-5 rounded-2xl border border-observatory-border bg-observatory-surface p-5 sm:p-6">
+    <section id="difference-analysis" className="space-y-5 rounded-2xl border border-observatory-border bg-observatory-surface p-5 sm:p-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-observatory-cyan">
           Phase 6 · Candidate analysis
@@ -63,76 +87,234 @@ export default function DifferenceAnalysis({
         </div>
       </div>
 
-      <button
-        disabled={!canGenerate || difference.isPending}
-        onClick={() => difference.mutate({
-          early_cutout_fits_url: earlier.cutout_fits_url,
-          late_cutout_fits_url: later.cutout_fits_url,
-          ra,
-          dec,
-        })}
-        className="rounded-lg bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {difference.isPending ? 'Generating difference…' : 'Generate difference image'}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={!canGenerate || job.submit.isPending || difference.isPending}
+          onClick={() => {
+            if (!jobPayload) return
+            setJobFallbackMessage('')
+            difference.reset()
+            job.reset()
+            setSelectedCandidateId(null)
+            job.submit.mutate(jobPayload)
+          }}
+          className="rounded-lg bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {job.submit.isPending ? 'Submitting job…' : 'Generate with background job'}
+        </button>
+        <button
+          type="button"
+          disabled={!canGenerate || difference.isPending || job.submit.isPending}
+          onClick={() => {
+            setJobFallbackMessage('Using the synchronous difference endpoint.')
+            job.reset()
+            setSelectedCandidateId(null)
+            difference.mutate({
+              early_cutout_fits_url: earlier.cutout_fits_url,
+              late_cutout_fits_url: later.cutout_fits_url,
+              ra,
+              dec,
+            })
+          }}
+          className="rounded-lg border border-observatory-border px-4 py-3 text-sm hover:border-observatory-cyan disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Run directly instead
+        </button>
+      </div>
+
+      {job.submit.isPending && (
+        <p role="status" className="text-sm text-observatory-muted">
+          Submitting the difference task to the backend job queue…
+        </p>
+      )}
+
+      {job.status && (
+        <div className="space-y-3 rounded-xl border border-observatory-border bg-[#080f1c] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Background job · {job.status.status}</p>
+              <p className="mt-1 font-mono text-[11px] text-observatory-muted">
+                {job.status.id}
+              </p>
+            </div>
+            <span className="font-mono text-sm tabular-nums">
+              {Math.round(job.status.progress_pct)}%
+            </span>
+          </div>
+          <div
+            role="progressbar"
+            aria-label="Difference job progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={job.status.progress_pct}
+            className="h-2 overflow-hidden rounded-full bg-observatory-border"
+          >
+            <div
+              className="h-full rounded-full bg-observatory-cyan transition-all"
+              style={{ width: `${Math.max(0, Math.min(100, job.status.progress_pct))}%` }}
+            />
+          </div>
+          {job.status.status === 'queued' || job.status.status === 'running' ? (
+            <div className="flex flex-wrap items-center gap-3 text-xs text-observatory-muted">
+              <span>{job.isMonitoring ? 'Status refreshes automatically.' : 'Status monitoring is paused; backend processing may continue.'}</span>
+              {job.isMonitoring ? (
+                <button type="button" onClick={() => void job.stopMonitoring()} className="underline">
+                  Stop monitoring
+                </button>
+              ) : (
+                <button type="button" onClick={job.resumeMonitoring} className="underline">
+                  Resume monitoring
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-observatory-muted">
+              {job.status.status === 'completed'
+                ? 'The backend marked this job completed.'
+                : job.status.error || 'The backend job failed.'}
+            </p>
+          )}
+        </div>
+      )}
+
+      {job.queryError && (
+        <div role="alert" className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
+          {job.queryError.message}
+          <button type="button" className="ml-3 underline" onClick={job.resumeMonitoring}>
+            Retry monitoring
+          </button>
+        </div>
+      )}
+
+      {job.submit.isError && (
+        <div role="alert" className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
+          {job.submit.error.message}
+          <p className="mt-2 text-xs text-red-200/80">
+            The job endpoint may not be enabled on the backend yet. Use the direct endpoint as a fallback.
+          </p>
+        </div>
+      )}
+
+      {job.invalidCompletedResult && (
+        <div role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-200">
+          The job finished, but its result does not match the current DifferenceResponse schema.
+          No result image or candidate data will be inferred from it.
+        </div>
+      )}
 
       {difference.isPending && (
-        <p className="text-sm text-observatory-muted">
-          The backend is aligning the observation frames and calculating residuals.
+        <p role="status" className="text-sm text-observatory-muted">
+          The synchronous endpoint is aligning the observation frames and calculating residuals.
         </p>
       )}
 
       {difference.isError && (
-        <div className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
+        <div role="alert" className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
           {difference.error?.message || 'Difference request failed.'}
-          <button className="ml-3 underline" onClick={() => difference.reset()}>
+          <button type="button" className="ml-3 underline" onClick={() => difference.reset()}>
             Dismiss
           </button>
         </div>
       )}
 
-      {difference.data && (
+      {jobFallbackMessage && (
+        <p className="text-xs text-observatory-muted">{jobFallbackMessage}</p>
+      )}
+
+      {result && (
         <div className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="rounded-full bg-violet-500/15 px-3 py-1 text-xs text-violet-300">
-              {difference.data.candidates.length} potential detections
+              {result.candidates.length} potential detections
             </span>
             <span className="font-mono text-xs text-observatory-muted">
-              {difference.data.shape_ny_nx.join(' × ')} pixels
+              {result.shape_ny_nx.join(' × ')} pixels
             </span>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-observatory-border bg-[#050a16]">
-            <div className="border-b border-observatory-border px-4 py-3 text-sm font-semibold">
-              Difference image
+          <SynchronizedDifferenceViewer
+            earlierUrl={resolveApiAssetUrl(earlier.preview_png_url)}
+            laterUrl={resolveApiAssetUrl(later.preview_png_url)}
+            differenceUrl={resolveApiAssetUrl(result.difference_png_url)}
+            significanceUrl={getSignificanceImageUrl(result)
+              ? resolveApiAssetUrl(getSignificanceImageUrl(result)!)
+              : undefined}
+            shapeNyNx={result.shape_ny_nx}
+            selectedCandidate={result.candidates.find(
+              (candidate) => candidate.candidate_id === selectedCandidateId,
+            )}
+          />
+          {(resultV21Metadata.displayScale ||
+            resultV21Metadata.earlyWavelengthUm !== undefined ||
+            resultV21Metadata.lateWavelengthUm !== undefined ||
+            resultV21Metadata.photometricScaleFactor !== undefined ||
+            resultV21Metadata.wavelengthCompatible !== undefined ||
+            resultV21Metadata.scientificWarning !== undefined) && (
+            <div className="space-y-2 rounded-xl border border-observatory-border p-4 text-xs">
+              {resultV21Metadata.displayScale && (
+                <p>
+                  Difference scale: [{resultV21Metadata.displayScale.vmin.toFixed(2)}, {resultV21Metadata.displayScale.vmax.toFixed(2)}] {resultV21Metadata.displayScale.unit}
+                  {' · '}{resultV21Metadata.displayScale.stretch}
+                  {' · '}{resultV21Metadata.displayScale.colormap}
+                </p>
+              )}
+              {(resultV21Metadata.earlyWavelengthUm !== undefined ||
+                resultV21Metadata.lateWavelengthUm !== undefined) && (
+                <p className="text-observatory-muted">
+                  Wavelengths: {resultV21Metadata.earlyWavelengthUm?.toFixed(4) ?? 'Not supplied'} μm earlier
+                  {' · '}{resultV21Metadata.lateWavelengthUm?.toFixed(4) ?? 'Not supplied'} μm later
+                </p>
+              )}
+              {resultV21Metadata.photometricScaleFactor !== undefined && (
+                <p className="text-observatory-muted">
+                  Photometric scale factor: {resultV21Metadata.photometricScaleFactor.toFixed(4)}
+                </p>
+              )}
+              {resultV21Metadata.wavelengthCompatible !== undefined && (
+                <p className={resultV21Metadata.wavelengthCompatible ? 'text-emerald-300' : 'text-amber-300'}>
+                  {resultV21Metadata.wavelengthCompatible ? 'Backend marks the wavelengths compatible.' : 'Backend warns that these wavelengths are not compatible.'}
+                </p>
+              )}
+              {resultV21Metadata.scientificWarning && (
+                <p role="alert" className="text-amber-300">{resultV21Metadata.scientificWarning}</p>
+              )}
+              {getSignificanceImageUrl(result) && (
+                <p className="text-observatory-muted">Significance map: 0–8 σ · viridis</p>
+              )}
             </div>
-            <div className="flex min-h-64 items-center justify-center p-3">
-              <img
-                src={difference.data.difference_png_url}
-                alt="Backend-generated SPHEREx difference image"
-                className="max-h-[520px] max-w-full object-contain"
-                onError={(event) => {
-                  event.currentTarget.alt = 'Difference image could not be loaded'
-                  event.currentTarget.style.display = 'none'
-                }}
-              />
-            </div>
-            <p className="border-t border-observatory-border px-4 py-2 text-xs text-observatory-muted">
-              Positive residual: later brighter · Negative residual: earlier brighter
-            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-observatory-border p-3 text-xs">
+            <span className="text-observatory-muted">Residual direction:</span>
+            <span className="text-emerald-300">Positive = later brighter</span>
+            <span className="text-blue-300">Negative = earlier brighter</span>
+            <span className="text-observatory-muted">Near zero = little change</span>
           </div>
+          {!getSignificanceImageUrl(result) && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs leading-5 text-observatory-muted">
+              This response does not include a significance-map URL or backend colour-scale metadata.
+              Only the returned difference image is shown.
+            </div>
+          )}
 
-          {difference.data.candidates.length === 0 ? (
+          {result.candidates.length === 0 ? (
             <div className="rounded-xl border border-dashed border-observatory-border p-5 text-sm text-observatory-muted">
               The backend returned no potential detections for this pair.
             </div>
           ) : (
             <div className="space-y-3">
               <h3 className="font-semibold">Potential detections</h3>
-              {difference.data.candidates.map((candidate) => (
-                <article
+              {result.candidates.map((candidate) => (
+                <button
+                  type="button"
                   key={candidate.candidate_id}
-                  className="rounded-xl border border-observatory-border bg-[#080f1c] p-4"
+                  aria-pressed={candidate.candidate_id === selectedCandidateId}
+                  onClick={() => setSelectedCandidateId(candidate.candidate_id)}
+                  className={`block w-full rounded-xl border bg-[#080f1c] p-4 text-left transition ${
+                    candidate.candidate_id === selectedCandidateId
+                      ? 'border-amber-400 bg-amber-500/10'
+                      : 'border-observatory-border hover:border-observatory-cyan'
+                  }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="font-mono text-sm font-semibold">
@@ -178,7 +360,10 @@ export default function DifferenceAnalysis({
                       candidate.match.apparent_motion_arcsec_yr !== undefined &&
                       ` Apparent motion: ${candidate.match.apparent_motion_arcsec_yr} arcsec/year.`}
                   </p>
-                </article>
+                  <p className="mt-3 text-[11px] text-observatory-muted">
+                    Difference-image pixel: ({candidate.png_x.toFixed(1)}, {candidate.png_y.toFixed(1)})
+                  </p>
+                </button>
               ))}
             </div>
           )}

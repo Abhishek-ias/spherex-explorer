@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import type { PointerEvent, WheelEvent, MouseEvent } from 'react'
+import type { PointerEvent, WheelEvent, MouseEvent, KeyboardEvent } from 'react'
 import type { components } from '@/api/schema'
+import {
+  findOverlayMarkerAtPoint,
+  getImageDrawGeometry,
+  moveKeyboardImagePoint,
+} from './viewerGeometry'
 
 type PixelPoint = components['schemas']['PixelPoint']
 
@@ -9,13 +14,19 @@ export type OverlayMarker = {
   x: number
   y: number
   kind: 'gaia' | 'wise'
+  opacity?: number
 }
 
 type Props = {
   imageUrl: string
+  wiseImageUrl?: string
+  wiseImageOpacity?: number
   targetPx?: PixelPoint
   title: string
   overlayMarkers?: OverlayMarker[]
+  pendingSelection?: { x: number; y: number }
+  selectedObject?: PixelPoint
+  onOverlaySelect?: (markerId: string, kind: 'gaia' | 'wise') => void
   onIdentify?: (x: number, y: number, width: number, height: number) => void
 }
 
@@ -27,24 +38,60 @@ type ViewTransform = {
 
 export default function SkyViewer({
   imageUrl,
+  wiseImageUrl,
+  wiseImageOpacity = 1,
   targetPx,
   title,
   overlayMarkers = [],
+  pendingSelection,
+  selectedObject,
+  onOverlaySelect,
   onIdentify,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const view = useRef<ViewTransform>({ zoom: 1, x: 0, y: 0 })
   const redraw = useRef<() => void>(() => {})
   const drag = useRef({ active: false, moved: false, x: 0, y: 0 })
-  const [imageError, setImageError] = useState(false)
+  const imageSize = useRef({ width: 0, height: 0 })
+  const clickTimer = useRef<number | null>(null)
+  const keyboardPoint = useRef({ x: 0.5, y: 0.5 })
+  const keyboardFocus = useRef(false)
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
+  const [failedWiseImageUrl, setFailedWiseImageUrl] = useState<string | null>(null)
+  const [wiseRetryCount, setWiseRetryCount] = useState(0)
+  const wiseOpacityRef = useRef(wiseImageOpacity)
+  const [canvasUnavailableUrl, setCanvasUnavailableUrl] = useState<string | null>(null)
+  const imageError = Boolean(imageUrl && failedImageUrl === imageUrl)
+  const canvasUnavailable = Boolean(imageUrl && canvasUnavailableUrl === imageUrl)
+  const [retryCount, setRetryCount] = useState(0)
+
+  useEffect(() => () => {
+    if (clickTimer.current !== null) {
+      window.clearTimeout(clickTimer.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    wiseOpacityRef.current = wiseImageOpacity
+    redraw.current()
+  }, [wiseImageOpacity])
 
   useEffect(() => {
     const canvas = canvasRef.current
     const context = canvas?.getContext('2d')
-    if (!canvas || !context) return
+    if (!canvas) return
+    if (!context) {
+      queueMicrotask(() => setCanvasUnavailableUrl(imageUrl))
+      return
+    }
+
+    imageSize.current = { width: 0, height: 0 }
 
     let image: HTMLImageElement | null = null
     let loaded = false
+    let wiseImage: HTMLImageElement | null = null
+    let wiseLoaded = false
+    let wiseFailed = false
     let dpr = window.devicePixelRatio || 1
 
     const draw = () => {
@@ -61,7 +108,7 @@ export default function SkyViewer({
         context.font = '14px Inter, sans-serif'
         context.textAlign = 'center'
         context.fillText(
-          imageError ? 'Preview image unavailable' : 'Loading preview...',
+          'Loading preview...',
           width / 2,
           height / 2,
         )
@@ -76,6 +123,59 @@ export default function SkyViewer({
       const y = (height - drawHeight) / 2 + view.current.y
 
       context.drawImage(image, x, y, drawWidth, drawHeight)
+
+      if (wiseLoaded && wiseImage && !wiseFailed) {
+        const previousAlpha = context.globalAlpha
+        context.globalAlpha = Math.max(0, Math.min(1, wiseOpacityRef.current))
+        context.drawImage(wiseImage, x, y, drawWidth, drawHeight)
+        context.globalAlpha = previousAlpha
+      }
+
+      if (selectedObject) {
+        const sx = x + selectedObject.x * scale
+        const sy = y + selectedObject.y * scale
+        context.beginPath()
+        context.arc(sx, sy, 10, 0, Math.PI * 2)
+        context.strokeStyle = '#f472b6'
+        context.lineWidth = 2
+        context.stroke()
+        context.beginPath()
+        context.moveTo(sx - 14, sy)
+        context.lineTo(sx + 14, sy)
+        context.moveTo(sx, sy - 14)
+        context.lineTo(sx, sy + 14)
+        context.stroke()
+      }
+
+      if (pendingSelection) {
+        const px = x + pendingSelection.x * drawWidth
+        const py = y + pendingSelection.y * drawHeight
+        context.beginPath()
+        context.arc(px, py, 11, 0, Math.PI * 2)
+        context.setLineDash([4, 3])
+        context.strokeStyle = '#fbbf24'
+        context.lineWidth = 2
+        context.stroke()
+        context.setLineDash([])
+      }
+
+      if (keyboardFocus.current) {
+        const cursorX = x + keyboardPoint.current.x * drawWidth
+        const cursorY = y + keyboardPoint.current.y * drawHeight
+        context.beginPath()
+        context.arc(cursorX, cursorY, 10, 0, Math.PI * 2)
+        context.setLineDash([4, 3])
+        context.strokeStyle = '#facc15'
+        context.lineWidth = 2
+        context.stroke()
+        context.setLineDash([])
+        context.beginPath()
+        context.moveTo(cursorX - 15, cursorY)
+        context.lineTo(cursorX + 15, cursorY)
+        context.moveTo(cursorX, cursorY - 15)
+        context.lineTo(cursorX, cursorY + 15)
+        context.stroke()
+      }
 
       if (targetPx) {
         const tx = x + targetPx.x * scale
@@ -97,6 +197,8 @@ export default function SkyViewer({
 
         context.beginPath()
         context.arc(mx, my, 6, 0, Math.PI * 2)
+        const previousAlpha = context.globalAlpha
+        context.globalAlpha = marker.opacity ?? 1
         context.fillStyle = marker.kind === 'gaia'
           ? 'rgba(59,130,246,0.22)'
           : 'rgba(245,158,11,0.22)'
@@ -104,6 +206,7 @@ export default function SkyViewer({
         context.lineWidth = 1.7
         context.fill()
         context.stroke()
+        context.globalAlpha = previousAlpha
       }
     }
 
@@ -120,18 +223,37 @@ export default function SkyViewer({
     observer.observe(canvas)
     resize()
 
+    if (wiseImageUrl) {
+      wiseImage = new Image()
+      wiseImage.onload = () => {
+        wiseLoaded = true
+        draw()
+      }
+      wiseImage.onerror = () => {
+        wiseFailed = true
+        setFailedWiseImageUrl(wiseImageUrl)
+        draw()
+      }
+      wiseImage.crossOrigin = 'anonymous'
+      wiseImage.src = wiseImageUrl
+    }
+
     if (imageUrl) {
       image = new Image()
       image.onload = () => {
         loaded = true
-        setImageError(false)
+        imageSize.current = {
+          width: image?.naturalWidth ?? 0,
+          height: image?.naturalHeight ?? 0,
+        }
         draw()
       }
       image.onerror = () => {
         loaded = false
-        setImageError(true)
+        setFailedImageUrl(imageUrl)
         draw()
       }
+      image.crossOrigin = 'anonymous'
       image.src = imageUrl
     } else {
       draw()
@@ -144,11 +266,78 @@ export default function SkyViewer({
         image.onerror = null
       }
     }
-  }, [imageUrl, targetPx, imageError, overlayMarkers])
+  }, [imageUrl, retryCount, wiseImageUrl, wiseRetryCount, targetPx, overlayMarkers, pendingSelection, selectedObject])
 
   function zoomBy(factor: number) {
     view.current.zoom = Math.max(0.5, Math.min(8, view.current.zoom * factor))
     redraw.current()
+  }
+
+  function handleCanvasKeyDown(event: KeyboardEvent<HTMLCanvasElement>) {
+    if (event.key === '+' || event.key === '=') {
+      event.preventDefault()
+      zoomBy(1.25)
+      return
+    }
+    if (event.key === '-') {
+      event.preventDefault()
+      zoomBy(1 / 1.25)
+      return
+    }
+    if (event.key === '0') {
+      event.preventDefault()
+      view.current = { zoom: 1, x: 0, y: 0 }
+      redraw.current()
+      return
+    }
+
+    const nextPoint = moveKeyboardImagePoint(keyboardPoint.current, event.key)
+    if (nextPoint) {
+      event.preventDefault()
+      keyboardPoint.current = nextPoint
+      redraw.current()
+      return
+    }
+
+    if (event.key === 'Enter' && onIdentify && imageSize.current.width > 0) {
+      event.preventDefault()
+      const canvas = event.currentTarget
+      const geometry = getImageDrawGeometry(
+        canvas.clientWidth,
+        canvas.clientHeight,
+        imageSize.current.width,
+        imageSize.current.height,
+        view.current.zoom,
+        view.current.x,
+        view.current.y,
+      )
+      if (!geometry) return
+      onIdentify(
+        keyboardPoint.current.x * geometry.width,
+        keyboardPoint.current.y * geometry.height,
+        geometry.width,
+        geometry.height,
+      )
+    }
+  }
+
+  function handleCanvasFocus() {
+    keyboardFocus.current = true
+    redraw.current()
+  }
+
+  function handleCanvasBlur() {
+    keyboardFocus.current = false
+    redraw.current()
+  }
+
+  function retryPreview() {
+    setRetryCount((count) => count + 1)
+  }
+
+  function retryWiseImage() {
+    setFailedWiseImageUrl(null)
+    setWiseRetryCount((count) => count + 1)
   }
 
   function handleWheel(event: WheelEvent<HTMLCanvasElement>) {
@@ -191,14 +380,66 @@ export default function SkyViewer({
   }
 
   function handleClick(event: MouseEvent<HTMLCanvasElement>) {
-    if (drag.current.moved || !imageUrl || imageError || !onIdentify) return
+    if (drag.current.moved || !imageUrl || imageError) return
+
     const rect = event.currentTarget.getBoundingClientRect()
-    onIdentify(
-      event.clientX - rect.left,
-      event.clientY - rect.top,
+    const { width: imageWidth, height: imageHeight } = imageSize.current
+    const geometry = getImageDrawGeometry(
       rect.width,
       rect.height,
+      imageWidth,
+      imageHeight,
+      view.current.zoom,
+      view.current.x,
+      view.current.y,
     )
+    if (!geometry) return
+
+    // Capture primitive values now; React's currentTarget is not safe to read
+    // from a delayed callback after this event handler returns.
+    const point = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    }
+    const clickX = point.x - geometry.x
+    const clickY = point.y - geometry.y
+    if (
+      clickX < 0 || clickY < 0 ||
+      clickX > geometry.width || clickY > geometry.height
+    ) return
+
+    const marker = findOverlayMarkerAtPoint(overlayMarkers, point, geometry)
+
+    if (clickTimer.current !== null) {
+      window.clearTimeout(clickTimer.current)
+    }
+    clickTimer.current = window.setTimeout(() => {
+      clickTimer.current = null
+      if (marker) {
+        onOverlaySelect?.(marker.id, marker.kind)
+        return
+      }
+      onIdentify?.(clickX, clickY, geometry.width, geometry.height)
+    }, 240)
+  }
+
+  function handleDoubleClick(event: MouseEvent<HTMLCanvasElement>) {
+    event.preventDefault()
+    if (clickTimer.current !== null) {
+      window.clearTimeout(clickTimer.current)
+      clickTimer.current = null
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect()
+    const mx = event.clientX - rect.left - rect.width / 2
+    const my = event.clientY - rect.top - rect.height / 2
+    const oldZoom = view.current.zoom
+    const nextZoom = Math.max(0.5, Math.min(8, oldZoom * 1.6))
+    const ratio = nextZoom / oldZoom
+    view.current.x = mx - (mx - view.current.x) * ratio
+    view.current.y = my - (my - view.current.y) * ratio
+    view.current.zoom = nextZoom
+    redraw.current()
   }
 
   return (
@@ -217,32 +458,66 @@ export default function SkyViewer({
         </div>
       </div>
 
-      {imageUrl && !imageError ? (
+      {imageUrl && !imageError && !canvasUnavailable ? (
         <canvas
           ref={canvasRef}
           role="img"
-          aria-label={`Observation preview: ${title}. Drag to pan, scroll to zoom, click to identify.`}
+          aria-label={`Observation preview: ${title}. Use arrow keys to move the identification cursor and Enter to identify the marked position.`}
+          aria-describedby="sky-viewer-keyboard-help"
+          tabIndex={0}
+          aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Enter + - 0"
+          onFocus={handleCanvasFocus}
+          onBlur={handleCanvasBlur}
+          onKeyDown={handleCanvasKeyDown}
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={() => { drag.current.active = false }}
           onPointerCancel={() => { drag.current.active = false }}
           onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
           className="h-[420px] w-full touch-none cursor-crosshair"
         />
       ) : (
-        <div className="flex h-[420px] items-center justify-center p-8 text-center">
-          <p className="text-sm text-observatory-muted">
-            {imageError ? 'Preview image unavailable' : 'No preview image returned'}
-          </p>
+        <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 p-8 text-center"
+          role={imageError ? 'alert' : 'status'}
+          aria-live="polite">
+          {canvasUnavailable && imageUrl && !imageError ? (
+            <>
+              <p className="text-sm text-observatory-muted">Interactive canvas is unavailable. Showing the static preview instead.</p>
+              <img src={imageUrl} alt={`Static observation preview: ${title}`} className="max-h-[420px] max-w-full object-contain" />
+            </>
+          ) : (
+            <p className="text-sm text-observatory-muted">
+              {imageError ? 'Preview image unavailable.' : 'No preview image returned.'}
+            </p>
+          )}
+          {imageError && (
+            <button type="button" onClick={retryPreview}
+              className="rounded-lg border border-observatory-border px-4 py-2 text-sm font-medium hover:border-observatory-cyan focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-observatory-cyan">
+              Retry preview
+            </button>
+          )}
         </div>
       )}
 
       <div className="flex flex-wrap gap-4 border-t border-observatory-border px-4 py-2 text-xs text-observatory-muted">
         <span><span className="mr-1 text-cyan-400">⊕</span> Target</span>
+        <span><span className="mr-1 text-amber-300">◉</span> Pending selection</span>
+        <span><span className="mr-1 text-pink-400">⊕</span> Identified source</span>
         <span><span className="mr-1 text-blue-400">○</span> Gaia DR3</span>
         <span><span className="mr-1 text-amber-400">○</span> WISE</span>
-        <span>Drag · Scroll · Click to identify</span>
+        {wiseImageUrl && failedWiseImageUrl === wiseImageUrl && (
+          <span role="status" className="basis-full flex flex-wrap items-center gap-2 text-amber-300">
+            WISE raster image unavailable; catalogue markers remain visible.
+            <button type="button" onClick={retryWiseImage} className="underline">Retry WISE image</button>
+          </span>
+        )}
+        <span>Drag · Scroll to zoom · Double-click to zoom · Click to identify</span>
+        <p id="sky-viewer-keyboard-help" className="basis-full text-[11px] leading-5">
+          Keyboard: focus the preview, use arrow keys to move the identification cursor,
+          press Enter to identify, + / − to zoom, and 0 to reset.
+        </p>
       </div>
     </div>
   )

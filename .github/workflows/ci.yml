@@ -1,4 +1,4 @@
-﻿name: SPHEREx Frontend CI
+name: SPHEREx Frontend CI
 
 on:
   push:
@@ -34,6 +34,12 @@ jobs:
 
       - name: Run tests
         run: npm run test
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Browser end-to-end tests
+        run: npm run test:e2e
 
       - name: Production build
         run: npm run build
