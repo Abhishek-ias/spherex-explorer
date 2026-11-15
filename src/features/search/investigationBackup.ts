@@ -3,7 +3,7 @@ import { searchParamsSchema } from './searchParams'
 
 const backupSchema = z.object({
   version: z.literal(1),
-  savedAt: z.string().min(1).max(64),
+  savedAt: z.string().min(1).max(64).refine((value) => Number.isFinite(Date.parse(value))),
   pathname: z.literal('/explore'),
   search: z.string().max(4000),
 }).strict()
@@ -25,7 +25,7 @@ function isValidBand(value: string | null): boolean {
   if (!match) return false
   const lower = Number(match[1])
   const upper = Number(match[2])
-  return Number.isFinite(lower) && Number.isFinite(upper) && lower <= upper
+  return Number.isFinite(lower) && Number.isFinite(upper) && lower >= 0 && upper > lower
 }
 
 function isValidLayers(value: string | null): boolean {
@@ -42,7 +42,9 @@ function isValidOpacity(value: string | null): boolean {
 }
 
 function validateSearch(search: string): URLSearchParams | null {
+  if (search.length > 4000) return null
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+  if (allowedKeys.some((key) => params.getAll(key).length > 1)) return null
   const coordinates = searchParamsSchema.safeParse({
     ra: params.get('ra'),
     dec: params.get('dec'),

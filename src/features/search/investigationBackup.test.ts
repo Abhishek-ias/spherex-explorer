@@ -41,6 +41,30 @@ describe('investigation backup', () => {
     })).toBeNull()
   })
 
+  it('rejects duplicate parameters, invalid wavelength bands and oversized URLs', () => {
+    expect(createInvestigationBackup(
+      '/explore',
+      '?ra=153.188750&ra=360&dec=0&fov=15',
+    )).toBeNull()
+    expect(createInvestigationBackup(
+      '/explore',
+      '?ra=1&dec=0&fov=15&band=-1%3A1',
+    )).toBeNull()
+    expect(createInvestigationBackup(
+      '/explore',
+      `?ra=1&dec=0&fov=15&extra=${'x'.repeat(4100)}`,
+    )).toBeNull()
+  })
+
+  it('rejects invalid backup timestamps', () => {
+    expect(restoreInvestigationBackup({
+      version: 1,
+      savedAt: 'not-a-date',
+      pathname: '/explore',
+      search: validSearch,
+    })).toBeNull()
+  })
+
   it('rejects a route that is not an explorer search', () => {
     expect(createInvestigationBackup('/about', validSearch)).toBeNull()
     expect(restoreInvestigationBackup({
