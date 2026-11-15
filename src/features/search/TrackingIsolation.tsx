@@ -5,6 +5,7 @@ import { useObjectIsolationJob } from '@/api/hooks/useObjectIsolationJob'
 import type { components } from '@/api/schema'
 import { getNextSequenceIndex, normalizeSequenceIndex } from './isolationSequence'
 import { resolveApiAssetUrl } from '@/api/resolveApiAssetUrl'
+import BackendImage from './BackendImage'
 
 type ObservationFrame = components['schemas']['ObservationFrame']
 type Source = components['schemas']['SourceIdentificationResponse']
@@ -234,7 +235,8 @@ export default function TrackingIsolation({
               </span>
             </div>
             <div className="flex min-h-64 items-center justify-center p-4">
-              <img
+              <BackendImage
+                key={activeFrame.frame.isolated_png_url}
                 src={resolveApiAssetUrl(activeFrame.frame.isolated_png_url)}
                 alt={`${activeFrame.label}; backend isolated source ${source?.object_id ?? ''}`}
                 className="max-h-[440px] w-full object-contain"

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent, WheelEvent } from 'react'
 import type { components } from '@/api/schema'
 import { clampDifferenceZoom, getDifferenceImageAspectRatio, nextBlinkEpoch } from './differenceViewerUtils'
+import BackendImage from './BackendImage'
 
 type DifferenceCandidate = components['schemas']['DifferenceCandidate']
 
@@ -175,7 +176,8 @@ export default function SynchronizedDifferenceViewer({
                     transformOrigin: 'center',
                   }}
                 >
-                  <img
+                  <BackendImage
+                    key={panel.id + panel.url}
                     src={panel.url}
                     alt={panel.title}
                     draggable={false}
@@ -243,7 +245,8 @@ export default function SynchronizedDifferenceViewer({
                 transformOrigin: 'center',
               }}
             >
-              <img
+              <BackendImage
+                key={blinkEpoch}
                 src={blinkEpoch === 'earlier' ? earlierUrl : laterUrl}
                 alt={`Blink comparison showing ${blinkEpoch} epoch`}
                 draggable={false}
@@ -278,13 +281,15 @@ export default function SynchronizedDifferenceViewer({
                 transformOrigin: 'center',
               }}
             >
-              <img
+              <BackendImage
+                key={laterUrl}
                 src={laterUrl}
                 alt="Later epoch image"
                 draggable={false}
                 className="absolute inset-0 h-full w-full select-none object-fill"
               />
-              <img
+              <BackendImage
+                key={earlierUrl}
                 src={earlierUrl}
                 alt="Earlier epoch image revealed on the left side"
                 draggable={false}
