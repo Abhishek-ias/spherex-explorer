@@ -5,6 +5,7 @@ import type { components } from '@/api/schema'
 import SynchronizedDifferenceViewer from './SynchronizedDifferenceViewer'
 import { resolveApiAssetUrl } from '@/api/resolveApiAssetUrl'
 import { getSignificanceImageUrl } from './differenceViewerUtils'
+import { readDifferenceV21Metadata } from '@/api/backendV21'
 
 type ObservationFrame = components['schemas']['ObservationFrame']
 type Props = {
@@ -26,6 +27,7 @@ export default function DifferenceAnalysis({
   const [jobFallbackMessage, setJobFallbackMessage] = useState('')
 
   const result = job.result ?? difference.data
+  const resultV21Metadata = readDifferenceV21Metadata(result)
   const jobPayload = firstFrame && secondFrame
     ? {
         early_cutout_fits_url: firstFrame.mjd <= secondFrame.mjd
@@ -243,6 +245,45 @@ export default function DifferenceAnalysis({
               (candidate) => candidate.candidate_id === selectedCandidateId,
             )}
           />
+          {(resultV21Metadata.displayScale ||
+            resultV21Metadata.earlyWavelengthUm !== undefined ||
+            resultV21Metadata.lateWavelengthUm !== undefined ||
+            resultV21Metadata.photometricScaleFactor !== undefined ||
+            resultV21Metadata.wavelengthCompatible !== undefined ||
+            resultV21Metadata.scientificWarning !== undefined) && (
+            <div className="space-y-2 rounded-xl border border-observatory-border p-4 text-xs">
+              {resultV21Metadata.displayScale && (
+                <p>
+                  Difference scale: [{resultV21Metadata.displayScale.vmin.toFixed(2)}, {resultV21Metadata.displayScale.vmax.toFixed(2)}] {resultV21Metadata.displayScale.unit}
+                  {' · '}{resultV21Metadata.displayScale.stretch}
+                  {' · '}{resultV21Metadata.displayScale.colormap}
+                </p>
+              )}
+              {(resultV21Metadata.earlyWavelengthUm !== undefined ||
+                resultV21Metadata.lateWavelengthUm !== undefined) && (
+                <p className="text-observatory-muted">
+                  Wavelengths: {resultV21Metadata.earlyWavelengthUm?.toFixed(4) ?? 'Not supplied'} μm earlier
+                  {' · '}{resultV21Metadata.lateWavelengthUm?.toFixed(4) ?? 'Not supplied'} μm later
+                </p>
+              )}
+              {resultV21Metadata.photometricScaleFactor !== undefined && (
+                <p className="text-observatory-muted">
+                  Photometric scale factor: {resultV21Metadata.photometricScaleFactor.toFixed(4)}
+                </p>
+              )}
+              {resultV21Metadata.wavelengthCompatible !== undefined && (
+                <p className={resultV21Metadata.wavelengthCompatible ? 'text-emerald-300' : 'text-amber-300'}>
+                  {resultV21Metadata.wavelengthCompatible ? 'Backend marks the wavelengths compatible.' : 'Backend warns that these wavelengths are not compatible.'}
+                </p>
+              )}
+              {resultV21Metadata.scientificWarning && (
+                <p role="alert" className="text-amber-300">{resultV21Metadata.scientificWarning}</p>
+              )}
+              {getSignificanceImageUrl(result) && (
+                <p className="text-observatory-muted">Significance map: 0–8 σ · viridis</p>
+              )}
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-observatory-border p-3 text-xs">
             <span className="text-observatory-muted">Residual direction:</span>
             <span className="text-emerald-300">Positive = later brighter</span>

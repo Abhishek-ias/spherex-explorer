@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Pause, Play, SkipBack, SkipForward } from 'lucide-react'
+import { readObservationV21Metadata } from '@/api/backendV21'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import {
   filterTimelineByBand,
@@ -170,6 +171,7 @@ export default function ObservationTimeline({
           const previousEntry = visibleEntries[index - 1]
           const startsEpoch = !previousEntry || previousEntry.epochId !== entry.epochId
           const selected = entry.frame.obs_id === selectedId
+          const frameMetadata = readObservationV21Metadata(entry.frame)
 
           return (
             <div key={entry.frame.obs_id} className="min-w-36">
@@ -198,6 +200,16 @@ export default function ObservationTimeline({
                 <p className="mt-2 font-mono text-[10px] text-observatory-muted">
                   {entry.frame.em_min_um.toFixed(3)}–{entry.frame.em_max_um.toFixed(3)} μm
                 </p>
+                {(frameMetadata.surveyWeek || frameMetadata.surveyPass) && (
+                  <p className="mt-2 text-[10px] text-observatory-cyan">
+                    {[frameMetadata.surveyWeek, frameMetadata.surveyPass].filter(Boolean).join(' · ')}
+                  </p>
+                )}
+                {frameMetadata.pixelScaleArcsec !== undefined && (
+                  <p className="mt-1 text-[10px] text-observatory-muted">
+                    {frameMetadata.pixelScaleArcsec.toFixed(2)} arcsec/px
+                  </p>
+                )}
               </button>
             </div>
           )

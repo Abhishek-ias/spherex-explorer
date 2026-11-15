@@ -30,6 +30,30 @@ describe('ApiHealthIndicator', () => {
     expect(screen.getByText('v2.0.0')).toBeInTheDocument()
   })
 
+  it('renders the v2.1 quality-flag dictionary returned by the backend', async () => {
+    server.use(
+      http.get(`${API_BASE_URL}/api/health`, () =>
+        HttpResponse.json({
+          status: 'ok',
+          service: 'SPHEREx Explorer Backend',
+          version: '2.1.0',
+          quality_flag_definitions: {
+            '0': 'TRANSIENT (Cosmic ray or transient spike)',
+            '1': 'OVERFLOW (Detector saturation / ADC overflow)',
+            '21': 'SOURCE (Detected astronomical point/extended source)',
+          },
+        }),
+      ),
+    )
+
+    renderIndicator()
+
+    expect(await screen.findByText('API connected')).toBeInTheDocument()
+    expect(screen.getByText('v2.1.0')).toBeInTheDocument()
+    expect(screen.getByText('SPHEREx quality-flag dictionary · 3 definitions')).toBeInTheDocument()
+    expect(screen.getByText('SOURCE (Detected astronomical point/extended source)')).toBeInTheDocument()
+  })
+
   it('shows an accessible unavailable state when the health endpoint fails', async () => {
     server.use(
       http.get(`${API_BASE_URL}/api/health`, () =>

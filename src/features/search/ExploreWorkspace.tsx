@@ -16,6 +16,11 @@ import PanelErrorBoundary from './PanelErrorBoundary'
 import { useExplorerStore } from '@/store/explorerStore'
 import { resolveApiAssetUrl } from '@/api/resolveApiAssetUrl'
 import { getWiseImageLayerUrl } from './overlayResourceUtils'
+import {
+  readObservationV21Metadata,
+  readOverlayV21Metadata,
+  readSourceV21Metadata,
+} from '@/api/backendV21'
 
 function readOpacityParameter(params: URLSearchParams, key: string): number {
   const value = params.get(key)
@@ -108,6 +113,9 @@ export default function ExploreWorkspace() {
     : []
 
   const compareFrame = comparableFrames.find((frame) => frame.obs_id === compareId) ?? comparableFrames[0]
+  const selectedFrameMetadata = readObservationV21Metadata(selectedFrame)
+  const sourceV21Metadata = readSourceV21Metadata(identify.data)
+  const overlayV21Metadata = readOverlayV21Metadata(overlays.data)
   const selectedFrameId = selectedFrame?.obs_id
   const compareFrameId = compareFrame?.obs_id
 
@@ -460,9 +468,31 @@ export default function ExploreWorkspace() {
                     Quality flag: {identify.data.quality_flag}
                   </span>
                 </div>
-                <p className="text-xs text-observatory-muted">
-                  A Gaia/SIMBAD/known-object match label is not provided by the current identification response.
-                </p>
+                {sourceV21Metadata.flagLabels && sourceV21Metadata.flagLabels.length > 0 && (
+                  <p className="text-xs text-observatory-muted">
+                    Backend quality labels: {sourceV21Metadata.flagLabels.join(', ')}
+                  </p>
+                )}
+                {sourceV21Metadata.gaiaCrossmatch ? (
+                  <div className="rounded-lg border border-observatory-border p-3 text-xs">
+                    <p className="font-semibold">Gaia DR3 cross-match</p>
+                    <p className="mt-1 text-observatory-muted">
+                      {sourceV21Metadata.gaiaCrossmatch.matched
+                        ? `Matched${sourceV21Metadata.gaiaCrossmatch.sourceId ? ` · ${sourceV21Metadata.gaiaCrossmatch.sourceId}` : ''}`
+                        : `No Gaia counterpart · ${sourceV21Metadata.gaiaCrossmatch.discoveryStatus?.replaceAll('_', ' ') ?? 'verification status not supplied'}`}
+                    </p>
+                    {sourceV21Metadata.gaiaCrossmatch.separationArcsec !== undefined &&
+                      sourceV21Metadata.gaiaCrossmatch.separationArcsec !== null && (
+                        <p className="mt-1 text-observatory-muted">
+                          Separation: {sourceV21Metadata.gaiaCrossmatch.separationArcsec.toFixed(2)} arcsec
+                        </p>
+                      )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-observatory-muted">
+                    Gaia cross-match metadata was not included in this backend response.
+                  </p>
+                )}
                 <nav aria-label="Selected object actions" className="flex flex-wrap gap-2">
                   <a href="#spectrum-analysis" className="rounded-lg border border-observatory-border px-3 py-2 text-xs hover:border-observatory-cyan">Analyse spectrum</a>
                   <a href="#difference-analysis" className="rounded-lg border border-observatory-border px-3 py-2 text-xs hover:border-observatory-cyan">Compare observations</a>
@@ -488,6 +518,21 @@ export default function ExploreWorkspace() {
                   </div>
                 ))}
                 </div>
+                {(sourceV21Metadata.fluxUjy !== undefined ||
+                  sourceV21Metadata.fluxErrorUjy !== undefined ||
+                  sourceV21Metadata.positionErrorArcsec !== undefined) && (
+                  <dl className="grid gap-3 rounded-lg border border-observatory-border p-3 text-xs sm:grid-cols-3">
+                    {sourceV21Metadata.fluxUjy !== undefined && (
+                      <div><dt className="text-observatory-muted">Point flux</dt><dd className="mt-1 font-mono">{sourceV21Metadata.fluxUjy.toFixed(3)} μJy</dd></div>
+                    )}
+                    {sourceV21Metadata.fluxErrorUjy !== undefined && (
+                      <div><dt className="text-observatory-muted">Point-flux error</dt><dd className="mt-1 font-mono">{sourceV21Metadata.fluxErrorUjy.toFixed(3)} μJy</dd></div>
+                    )}
+                    {sourceV21Metadata.positionErrorArcsec !== undefined && (
+                      <div><dt className="text-observatory-muted">Position uncertainty</dt><dd className="mt-1 font-mono">{sourceV21Metadata.positionErrorArcsec.toFixed(3)} arcsec</dd></div>
+                    )}
+                  </dl>
+                )}
               </div>
             )}
           </section>
@@ -520,6 +565,18 @@ export default function ExploreWorkspace() {
               <div className="flex justify-between gap-3"><dt className="text-observatory-muted">MJD</dt><dd className="font-mono">{selectedFrame.mjd.toFixed(3)}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-observatory-muted">Wavelength</dt><dd>{selectedFrame.em_min_um}ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“{selectedFrame.em_max_um} ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â½ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼m</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-observatory-muted">Release</dt><dd>{selectedFrame.release}</dd></div>
+              {selectedFrameMetadata.pixelScaleArcsec !== undefined && (
+                <div className="flex justify-between gap-3"><dt className="text-observatory-muted">Pixel scale</dt><dd>{selectedFrameMetadata.pixelScaleArcsec.toFixed(2)} arcsec/px</dd></div>
+              )}
+              {selectedFrameMetadata.fluxUnit && (
+                <div className="flex justify-between gap-3"><dt className="text-observatory-muted">Flux unit</dt><dd>{selectedFrameMetadata.fluxUnit}</dd></div>
+              )}
+              {(selectedFrameMetadata.surveyWeek || selectedFrameMetadata.surveyPass) && (
+                <div className="flex justify-between gap-3"><dt className="text-observatory-muted">Survey pass</dt><dd>{[selectedFrameMetadata.surveyWeek, selectedFrameMetadata.surveyPass].filter(Boolean).join(' · ')}</dd></div>
+              )}
+              {selectedFrameMetadata.orientation && (
+                <div className="flex justify-between gap-3"><dt className="text-observatory-muted">Orientation</dt><dd className="text-right">{selectedFrameMetadata.orientation.north} / {selectedFrameMetadata.orientation.east}</dd></div>
+              )}
             </dl>
           </section>
 
@@ -589,6 +646,24 @@ export default function ExploreWorkspace() {
                       className="mt-2 w-full accent-amber-400 disabled:opacity-40" />
                   </label>
                 </div>
+                {(overlayV21Metadata.coverageFraction !== undefined ||
+                  overlayV21Metadata.coverageComplete !== undefined ||
+                  overlayV21Metadata.coverageWarning !== undefined) && (
+                  <div className="rounded-lg border border-observatory-border p-3 text-xs">
+                    <p className="font-semibold">Field-of-view coverage</p>
+                    <div className="mt-2 flex flex-wrap gap-3 text-observatory-muted">
+                      {overlayV21Metadata.coverageFraction !== undefined && (
+                        <span>{(overlayV21Metadata.coverageFraction * 100).toFixed(2)}% covered</span>
+                      )}
+                      {overlayV21Metadata.coverageComplete !== undefined && (
+                        <span>{overlayV21Metadata.coverageComplete ? 'Coverage complete' : 'Coverage incomplete'}</span>
+                      )}
+                    </div>
+                    {overlayV21Metadata.coverageWarning && (
+                      <p className="mt-2 text-amber-300">{overlayV21Metadata.coverageWarning}</p>
+                    )}
+                  </div>
+                )}
                 {wiseImageLayerUrl && (
                   <p className="text-xs text-observatory-muted">
                     The backend supplied a WISE raster layer. The WISE toggle and opacity control apply to both its image and source markers.

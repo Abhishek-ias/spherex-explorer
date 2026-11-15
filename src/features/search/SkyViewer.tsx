@@ -234,6 +234,7 @@ export default function SkyViewer({
         setFailedWiseImageUrl(wiseImageUrl)
         draw()
       }
+      wiseImage.crossOrigin = 'anonymous'
       wiseImage.src = wiseImageUrl
     }
 
@@ -252,6 +253,7 @@ export default function SkyViewer({
         setFailedImageUrl(imageUrl)
         draw()
       }
+      image.crossOrigin = 'anonymous'
       image.src = imageUrl
     } else {
       draw()
