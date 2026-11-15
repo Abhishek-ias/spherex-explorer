@@ -27,7 +27,7 @@ describe('ApiHealthIndicator', () => {
     renderIndicator()
 
     expect(await screen.findByText('Mock API')).toBeInTheDocument()
-    expect(screen.getByText('v2.0.0')).toBeInTheDocument()
+    expect(screen.getByText('v2.1.0')).toBeInTheDocument()
   })
 
   it('renders the v2.1 quality-flag dictionary returned by the backend', async () => {

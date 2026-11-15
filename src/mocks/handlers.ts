@@ -15,6 +15,9 @@ import {
 type SearchRequest = components['schemas']['SearchRequest']
 type SearchResponse = components['schemas']['SearchResponse']
 type HealthResponse = components['schemas']['HealthResponse']
+type BackendV21MockHealthResponse = HealthResponse & {
+  quality_flag_definitions: Record<string, string>
+}
 type IdentifyRequest = components['schemas']['IdentifyRequest']
 type OverlayRequest = components['schemas']['OverlayRequest']
 type DifferenceRequest = components['schemas']['DifferenceRequest']
@@ -61,8 +64,24 @@ export const handlers = [
     HttpResponse.json({
       status: 'mock',
       service: 'spherex-explorer',
-      version: '2.0.0',
-    } satisfies HealthResponse),
+      version: '2.1.0',
+      quality_flag_definitions: {
+        '0': 'TRANSIENT (Cosmic ray or transient spike)',
+        '1': 'OVERFLOW (Detector saturation / ADC overflow)',
+        '2': 'SUR_ERROR (Sample-up-the-ramp fitting error)',
+        '6': 'NONFUNC (Non-functional / dead pixel)',
+        '7': 'DICHROIC (Dichroic edge vignetting region)',
+        '9': 'MISSING_DATA (Telemetry drop / missing frame data)',
+        '10': 'HOT (Anomalously high dark current pixel)',
+        '11': 'COLD (Unresponsive / low sensitivity pixel)',
+        '12': 'PHANMISS (Phantom pixel missing reference)',
+        '14': 'NONLINEAR (High non-linearity correction regime)',
+        '15': 'PERSIST (Charge persistence from prior bright pixel)',
+        '17': 'OUTLIER (Statistical outlier across dither group)',
+        '19': 'UNRELIABLE_FLAT (Uncertain flat-field calibration)',
+        '21': 'SOURCE (Detected astronomical point/extended source)',
+      },
+    } satisfies BackendV21MockHealthResponse),
   ),
 
   http.get(`${API_BASE_URL}/api/targets`, () =>

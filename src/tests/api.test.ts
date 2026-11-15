@@ -78,6 +78,15 @@ describe('SPHEREx API integration', () => {
       dec_deg: -7.24542,
       target_px: { x: 72.81, y: 71.89 },
       flux_mjy_sr: 1.84215,
+      flux_ujy: 1637.671,
+      flux_err_ujy: 126.327,
+      position_err_arcsec: 0.362,
+      flag_labels: ['SOURCE'],
+      gaia_crossmatch: {
+        matched: false,
+        discovery_status: 'unmatched_candidate_requires_verification',
+        separation_arcsec: 18.42,
+      },
       snr: 12.96,
       quality_flag: 2097152,
     })
@@ -114,9 +123,9 @@ describe('SPHEREx API integration', () => {
       '/api/cache/wise_layer_a1b2c3d4e5f67890.png',
     )
     expect(readOverlayV21Metadata(data)).toEqual({
-      coverageFraction: undefined,
-      coverageComplete: undefined,
-      coverageWarning: undefined,
+      coverageFraction: 0.9982,
+      coverageComplete: true,
+      coverageWarning: null,
     })
   })
 
@@ -140,10 +149,28 @@ describe('SPHEREx API integration', () => {
     expect(data).toMatchObject({
       diff_key: '8f4b21a90c3e7d12',
       difference_png_url: '/api/cache/diff_8f4b21a90c3e7d12.png',
+      significance_png_url: '/api/cache/sig_8f4b21a90c3e7d12.png',
+      early_wavelength_um: 4.8604,
+      late_wavelength_um: 4.8619,
+      photometric_scale_factor: 1.0124,
+      wavelength_compatible: true,
+      scientific_warning: null,
+      display_scale: {
+        vmin: -0.85,
+        vmax: 0.85,
+        unit: 'MJy/sr',
+        stretch: 'linear',
+        colormap: 'coolwarm',
+      },
       candidates: [{
         candidate_id: 'CAND-01',
         significance_sigma: 6.45,
-        match: { matched: true, match_type: 'moving_dipole_pair' },
+        match: {
+          matched: true,
+          match_type: 'moving_dipole_pair',
+          gaia_source_id: null,
+          discovery_status: 'unmatched_candidate_requires_verification',
+        },
       }],
     })
   })
@@ -172,10 +199,24 @@ describe('SPHEREx API integration', () => {
       apparent_motion_arcsec_per_yr: 8.084,
       early_epoch_isolated: {
         isolated_png_url: '/api/cache/isolated_c62d04923b470855.png',
+        source_measurement: {
+          flux_ujy: 1637.671,
+          flux_err_ujy: 126.327,
+          position_err_arcsec: 0.362,
+          flag_labels: ['SOURCE'],
+        },
       },
       late_epoch_isolated: {
         isolated_png_url: '/api/cache/isolated_91e3a10b44f82c10.png',
+        source_measurement: {
+          flux_ujy: 1609.446,
+          flux_err_ujy: 124.282,
+          position_err_arcsec: 0.363,
+          flag_labels: ['SOURCE'],
+        },
       },
+      displacement_err_arcsec: 0.513,
+      motion_err_arcsec_per_yr: 0.512,
     })
   })
 
@@ -248,10 +289,14 @@ describe('SPHEREx API integration', () => {
 
     expect(response.status).toBe(200)
     expect(error).toBeUndefined()
-    expect(data).toEqual({
+    expect(data).toMatchObject({
       status: 'mock',
       service: 'spherex-explorer',
-      version: '2.0.0',
+      version: '2.1.0',
+      quality_flag_definitions: {
+        '0': 'TRANSIENT (Cosmic ray or transient spike)',
+        '21': 'SOURCE (Detected astronomical point/extended source)',
+      },
     })
   })
 
