@@ -71,7 +71,7 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
     anchor.href = url
     anchor.download = 'spherex-spectrum-comparison.csv'
     anchor.click()
-    URL.revokeObjectURL(url)
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   return (
@@ -129,6 +129,7 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
                 !validLater ||
                 validEarlier === validLater
               }
+              type="button"
               onClick={() => spectrum.mutate({
                 ra,
                 dec,
@@ -147,9 +148,10 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
           )}
 
           {spectrum.isError && (
-            <div className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
+            <div role="alert" className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
               {spectrum.error.message}
               <button
+                type="button"
                 onClick={() => spectrum.reset()}
                 className="ml-3 underline"
               >
@@ -227,11 +229,16 @@ export default function SpectrumAnalysis({ ra, dec, epochs }: Props) {
                   The current API schema does not define a flag-code legend.
                 </p>
                 {summaries?.flagged.length ? (
-                  <div className="max-h-80 overflow-auto">
-                    <table className="w-full text-left text-xs">
+                  <div
+                    role="region"
+                    aria-label="Quality-flagged raw measurement table"
+                    tabIndex={0}
+                    className="max-h-80 overflow-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-observatory-cyan"
+                  >
+                    <table aria-label="Raw spectral measurements with non-zero quality flags" className="w-full text-left text-xs">
                       <thead className="sticky top-0 bg-observatory-surface text-observatory-muted">
                         <tr>
-                          <th className="p-3">Epoch</th>
+                          <th scope="col" className="p-3">Epoch</th>
                           <th className="p-3">Date</th>
                           <th className="p-3">Detector</th>
                           <th className="p-3">Wavelength (μm)</th>
