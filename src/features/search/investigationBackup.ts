@@ -11,7 +11,7 @@ const backupSchema = z.object({
 export type InvestigationBackup = z.infer<typeof backupSchema>
 
 const allowedKeys = [
-  'ra', 'dec', 'fov', 'frame', 'compare', 'band',
+  'ra', 'dec', 'fov', 'frame', 'compare', 'epoch', 'compareEpoch', 'detector', 'band',
   'layers', 'gaiaOpacity', 'wiseOpacity', 'obj',
 ] as const
 
@@ -54,6 +54,9 @@ function validateSearch(search: string): URLSearchParams | null {
   if (!coordinates.success) return null
   if (!isOptionalIdentifier(params.get('frame'))) return null
   if (!isOptionalIdentifier(params.get('compare'))) return null
+  if (!isOptionalIdentifier(params.get('epoch'))) return null
+  if (!isOptionalIdentifier(params.get('compareEpoch'))) return null
+  if (!isOptionalIdentifier(params.get('detector'))) return null
   if (!isOptionalIdentifier(params.get('obj'))) return null
   if (!isValidBand(params.get('band'))) return null
   if (!isValidLayers(params.get('layers'))) return null

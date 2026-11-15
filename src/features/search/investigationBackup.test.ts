@@ -41,6 +41,30 @@ describe('investigation backup', () => {
     })).toBeNull()
   })
 
+  it('preserves restored backend epoch names and detector in local backups', () => {
+    const encoded = createInvestigationBackup(
+      '/explore',
+      '?ra=133.795129&dec=-7.245147&fov=15&epoch=2025-S1&compareEpoch=2026-S1&detector=6',
+    )
+    const restored = restoreInvestigationBackup(JSON.parse(encoded ?? '{}'))
+    const params = new URLSearchParams(restored ?? '')
+
+    expect(params.get('epoch')).toBe('2025-S1')
+    expect(params.get('compareEpoch')).toBe('2026-S1')
+    expect(params.get('detector')).toBe('6')
+  })
+
+  it('rejects empty or oversized restored epoch identifiers', () => {
+    expect(createInvestigationBackup(
+      '/explore',
+      '?ra=1&dec=0&fov=15&epoch=',
+    )).toBeNull()
+    expect(createInvestigationBackup(
+      '/explore',
+      `?ra=1&dec=0&fov=15&epoch=${'x'.repeat(300)}`,
+    )).toBeNull()
+  })
+
   it('rejects duplicate parameters, invalid wavelength bands and oversized URLs', () => {
     expect(createInvestigationBackup(
       '/explore',
