@@ -16,7 +16,7 @@ test('preset targets display all five backend-provided records', async ({ page }
     'RW Aurigae',
     'R Draconis',
   ]) {
-    await expect(page.getByRole('button', { name: new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\test('homepage exposes coordinate search and supported FOV options', async ({ page }) => {')) })).toBeVisible()
+    await expect(page.getByRole('button').filter({ hasText: name })).toHaveCount(1)
   }
 
   await expect(page.getByText('Verified observation fixture available')).toBeVisible()
