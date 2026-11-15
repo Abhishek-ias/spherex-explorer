@@ -108,8 +108,8 @@ export function applyRestoredShareToSearchParams(
     else next.delete('layers')
   }
 
-  // The handoff lists epoch names but does not specify their mapping to
-  // individual observation IDs, and the source-lookup route is still awaiting
-  // a published contract. Preserve other query state rather than guessing.
+  // Epoch names are resolved by ExploreWorkspace against returned observation
+  // frames and backend-approved comparable_with relationships. Selected source
+  // coordinates remain in server state until a source-lookup contract is live.
   return next
 }

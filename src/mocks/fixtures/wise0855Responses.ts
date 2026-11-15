@@ -277,6 +277,8 @@ export const wise0855Isolation = {
     },
   },
   angular_displacement_arcsec: 8.099,
+  displacement_err_arcsec: 0.513,
   time_baseline_days: 365.92,
   apparent_motion_arcsec_per_yr: 8.084,
+  motion_err_arcsec_per_yr: 0.512,
 } satisfies BackendV21IsolateResponse
