@@ -60,7 +60,6 @@ export default function SkyViewer({
   const [failedWiseImageUrl, setFailedWiseImageUrl] = useState<string | null>(null)
   const [wiseRetryCount, setWiseRetryCount] = useState(0)
   const wiseOpacityRef = useRef(wiseImageOpacity)
-  wiseOpacityRef.current = wiseImageOpacity
   const [canvasUnavailableUrl, setCanvasUnavailableUrl] = useState<string | null>(null)
   const imageError = Boolean(imageUrl && failedImageUrl === imageUrl)
   const canvasUnavailable = Boolean(imageUrl && canvasUnavailableUrl === imageUrl)
@@ -71,6 +70,11 @@ export default function SkyViewer({
       window.clearTimeout(clickTimer.current)
     }
   }, [])
+
+  useEffect(() => {
+    wiseOpacityRef.current = wiseImageOpacity
+    redraw.current()
+  }, [wiseImageOpacity])
 
   useEffect(() => {
     const canvas = canvasRef.current
