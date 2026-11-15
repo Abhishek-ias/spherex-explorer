@@ -138,7 +138,7 @@ export default function AladinContextMap({ ra, dec, fovArcmin }: Props) {
       cancelled = true
       setMapInstance(null)
     }
-  }, [expanded])
+  }, [expanded, ra, dec, fovArcmin])
 
   useEffect(() => {
     if (!mapInstance || status !== 'ready') return

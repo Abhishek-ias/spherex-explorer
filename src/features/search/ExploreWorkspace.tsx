@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useSearchObservations } from '@/api/hooks/useSearchObservations'
 import { useIdentifyObject } from '@/api/hooks/useIdentifyObject'
@@ -163,6 +163,8 @@ export default function ExploreWorkspace() {
   const compareFrame = urlCompareEpochId
     ? requestedLaterFrame ?? comparableFrames[0]
     : comparableFrames.find((frame) => frame.obs_id === compareId) ?? comparableFrames[0]
+  const requestedEarlierFrameId = requestedEarlierFrame?.obs_id
+  const requestedLaterFrameId = requestedLaterFrame?.obs_id
   const selectedEpochId = timelineEntries.find(
     (entry) => entry.frame.obs_id === selectedFrame?.obs_id,
   )?.epochId ?? null
@@ -231,14 +233,14 @@ export default function ExploreWorkspace() {
   const selectedFrameId = selectedFrame?.obs_id
   const compareFrameId = compareFrame?.obs_id
 
-  const selectFrame = useCallback((observationId: string) => {
+  function selectFrame(observationId: string) {
     identifyAbortRef.current?.abort()
     identifyAbortRef.current = null
     setPendingSelection(null)
     identify.reset()
     setIdentifyError('')
     setSelectedId(observationId)
-  }, [identify.reset, setSelectedId])
+  }
 
   useEffect(() => {
     hydrateFromUrl(uiStateKey, {
@@ -292,8 +294,8 @@ export default function ExploreWorkspace() {
     const next = new URLSearchParams(params)
 
     if (urlSelectedEpochId) {
-      if (requestedEarlierFrame) {
-        next.set('frame', requestedEarlierFrame.obs_id)
+      if (requestedEarlierFrameId) {
+        next.set('frame', requestedEarlierFrameId)
         next.delete('epoch')
       } else {
         next.delete('frame')
@@ -302,8 +304,8 @@ export default function ExploreWorkspace() {
     else next.delete('frame')
 
     if (urlCompareEpochId) {
-      if (requestedLaterFrame) {
-        next.set('compare', requestedLaterFrame.obs_id)
+      if (requestedLaterFrameId) {
+        next.set('compare', requestedLaterFrameId)
         next.delete('compareEpoch')
       } else {
         next.delete('compare')
@@ -335,8 +337,8 @@ export default function ExploreWorkspace() {
   }, [
     selectedFrameId,
     compareFrameId,
-    requestedEarlierFrame?.obs_id,
-    requestedLaterFrame?.obs_id,
+    requestedEarlierFrameId,
+    requestedLaterFrameId,
     urlSelectedEpochId,
     urlCompareEpochId,
     urlDetector,
@@ -352,7 +354,7 @@ export default function ExploreWorkspace() {
     uiStateHydrated,
   ])
 
-  const overlayMarkers = useMemo<OverlayMarker[]>(() => {
+  const overlayMarkers: OverlayMarker[] = (() => {
     if (!selectedFrameId || !overlays.data) return []
 
     const gaia = gaiaVisible
@@ -382,7 +384,8 @@ export default function ExploreWorkspace() {
       : []
 
     return [...gaia, ...wise]
-  }, [selectedFrameId, overlays.data, gaiaVisible, wiseVisible, gaiaOpacity, wiseOpacity])
+
+  })()
 
   function identifyAt(x: number, y: number, width: number, height: number) {
     if (ra === undefined || dec === undefined || fov === undefined || !selectedFrame) return
