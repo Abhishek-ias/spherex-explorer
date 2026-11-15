@@ -25,7 +25,7 @@ describe('SPHEREx API integration', () => {
 
   it('returns the two verified WISE 0855 SPHEREx DR1 observation frames', async () => {
     const { data, error, response } = await api.POST('/api/search', {
-      body: { ra: 133.795129, dec: -7.245147, fov_arcmin: 15 },
+      body: { ra: 130.123456, dec: -6.543210, fov_arcmin: 15 },
     })
 
     expect(response.status).toBe(200)
@@ -81,8 +81,8 @@ describe('SPHEREx API integration', () => {
     expect(error).toBeUndefined()
 
     expect(data).toMatchObject({
-      query_ra_deg: 133.795129,
-      query_dec_deg: -7.245147,
+      query_ra_deg: 130.123456,
+      query_dec_deg: -6.543210,
       fov_arcmin: 15,
       total_observations: 0,
       epochs: [],
