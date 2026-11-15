@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Pause, Play, SkipBack, SkipForward } from 'lucide-react'
 import { useIsolateObject } from '@/api/hooks/useIsolateObject'
+import { useObjectIsolationJob } from '@/api/hooks/useObjectIsolationJob'
 import type { components } from '@/api/schema'
 import { getNextSequenceIndex, normalizeSequenceIndex } from './isolationSequence'
 
@@ -18,6 +19,8 @@ export default function TrackingIsolation({
   source,
 }: Props) {
   const isolation = useIsolateObject()
+  const job = useObjectIsolationJob()
+  const isolationResult = job.result ?? isolation.data
   const [activeIndex, setActiveIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState('1')
@@ -27,15 +30,15 @@ export default function TrackingIsolation({
     Boolean(secondFrame?.cutout_fits_url) &&
     Boolean(source)
 
-  const sequence = isolation.data
+  const sequence = isolationResult
     ? [
         {
           label: 'Earlier isolated epoch',
-          frame: isolation.data.early_epoch_isolated,
+          frame: isolationResult.early_epoch_isolated,
         },
         {
           label: 'Later isolated epoch',
-          frame: isolation.data.late_epoch_isolated,
+          frame: isolationResult.late_epoch_isolated,
         },
       ]
     : []
@@ -61,7 +64,8 @@ export default function TrackingIsolation({
     setPlaying(false)
     setActiveIndex(0)
     isolation.reset()
-    isolation.mutate({
+    job.reset()
+    job.submit.mutate({
       early_cutout_fits_url: early.cutout_fits_url,
       late_cutout_fits_url: late.cutout_fits_url,
       object_ra: source.ra_deg,
@@ -108,17 +112,89 @@ export default function TrackingIsolation({
         <button
           type="button"
           onClick={runIsolation}
-          disabled={!canIsolate || isolation.isPending}
+          disabled={!canIsolate || job.submit.isPending || isolation.isPending}
           className="rounded-lg bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {isolation.isPending ? 'Isolating source…' : 'Isolate across epochs'}
+          {job.submit.isPending ? 'Submitting job…' : 'Isolate with background job'}
         </button>
+        <button
+          type="button"
+          disabled={!canIsolate || isolation.isPending || job.submit.isPending}
+          onClick={() => {
+            if (!firstFrame || !secondFrame || !source) return
+            const early = firstFrame.mjd <= secondFrame.mjd ? firstFrame : secondFrame
+            const late = firstFrame.mjd <= secondFrame.mjd ? secondFrame : firstFrame
+            job.reset()
+            isolation.mutate({
+              early_cutout_fits_url: early.cutout_fits_url,
+              late_cutout_fits_url: late.cutout_fits_url,
+              object_ra: source.ra_deg,
+              object_dec: source.dec_deg,
+              isolation_radius_pix: 4.5,
+            })
+          }}
+          className="rounded-lg border border-observatory-border px-4 py-3 text-sm hover:border-observatory-cyan disabled:opacity-40"
+        >
+          Run directly instead
+        </button>
+        {job.submit.isPending && (
+          <span role="status" className="text-xs text-observatory-muted">
+            Submitting isolation to the backend job queue.
+          </span>
+        )}
         {isolation.isPending && (
           <span role="status" className="text-xs text-observatory-muted">
-            Processing is performed by the backend.
+            Processing is performed by the synchronous backend endpoint.
           </span>
         )}
       </div>
+
+      {job.status && (
+        <div className="space-y-3 rounded-xl border border-observatory-border bg-[#080f1c] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Isolation job · {job.status.status}</p>
+              <p className="mt-1 font-mono text-[11px] text-observatory-muted">{job.status.id}</p>
+            </div>
+            <span className="font-mono text-sm tabular-nums">{Math.round(job.status.progress_pct)}%</span>
+          </div>
+          <div role="progressbar" aria-label="Isolation job progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={job.status.progress_pct} className="h-2 overflow-hidden rounded-full bg-observatory-border">
+            <div className="h-full rounded-full bg-observatory-cyan transition-all" style={{ width: `${Math.max(0, Math.min(100, job.status.progress_pct))}%` }} />
+          </div>
+          {job.status.status === 'queued' || job.status.status === 'running' ? (
+            <div className="flex flex-wrap items-center gap-3 text-xs text-observatory-muted">
+              <span>{job.isMonitoring ? 'Status refreshes automatically.' : 'Monitoring paused; backend processing may continue.'}</span>
+              {job.isMonitoring
+                ? <button type="button" onClick={() => void job.stopMonitoring()} className="underline">Stop monitoring</button>
+                : <button type="button" onClick={job.resumeMonitoring} className="underline">Resume monitoring</button>}
+            </div>
+          ) : (
+            <p className="text-xs text-observatory-muted">
+              {job.status.status === 'completed' ? 'The backend marked this job completed.' : job.status.error || 'The backend job failed.'}
+            </p>
+          )}
+        </div>
+      )}
+
+      {job.queryError && (
+        <div role="alert" className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
+          {job.queryError.message}
+          <button type="button" className="ml-3 underline" onClick={job.resumeMonitoring}>Retry monitoring</button>
+        </div>
+      )}
+
+      {job.submit.isError && (
+        <div role="alert" className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
+          {job.submit.error.message}
+          <p className="mt-2 text-xs text-red-200/80">The object-isolation job route may not be enabled yet; the synchronous endpoint remains available.</p>
+        </div>
+      )}
+
+      {job.invalidCompletedResult && (
+        <div role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-200">
+          The job completed, but its result does not match the current IsolateResponse schema. No measurements will be inferred.
+        </div>
+      )}
 
       {isolation.isError && (
         <div role="alert" className="rounded-lg border border-red-900/70 bg-red-950/20 p-4 text-sm text-red-300">
@@ -129,13 +205,13 @@ export default function TrackingIsolation({
         </div>
       )}
 
-      {isolation.data && activeFrame && (
+      {isolationResult && activeFrame && (
         <div className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-3">
             {[
-              ['Angular displacement', `${isolation.data.angular_displacement_arcsec.toFixed(4)} arcsec`],
-              ['Time baseline', `${isolation.data.time_baseline_days.toFixed(2)} days`],
-              ['Apparent motion', `${isolation.data.apparent_motion_arcsec_per_yr.toFixed(4)} arcsec/year`],
+              ['Angular displacement', `${isolationResult.angular_displacement_arcsec.toFixed(4)} arcsec`],
+              ['Time baseline', `${isolationResult.time_baseline_days.toFixed(2)} days`],
+              ['Apparent motion', `${isolationResult.apparent_motion_arcsec_per_yr.toFixed(4)} arcsec/year`],
             ].map(([label, value]) => (
               <div key={label} className="rounded-lg border border-observatory-border p-4">
                 <p className="text-xs text-observatory-muted">{label}</p>
