@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './baseUrl'
+import { API_ASSET_BASE_URL } from './baseUrl'
 
 /**
  * Resolve backend-returned resource paths against the configured API origin.
@@ -6,7 +6,7 @@ import { API_BASE_URL } from './baseUrl'
  */
 export function resolveApiAssetUrl(
   resourceUrl: string,
-  apiBaseUrl = API_BASE_URL,
+  apiBaseUrl = API_ASSET_BASE_URL,
 ): string {
   if (!resourceUrl.trim()) {
     throw new Error('Cannot resolve an empty API resource URL.')

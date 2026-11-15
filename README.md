@@ -21,13 +21,14 @@ npm run dev
 The development server prints the local URL. The mock flag is controlled by `VITE_USE_MOCKS`:
 
 ```env
-VITE_API_BASE_URL=http://localhost:8000
 VITE_USE_MOCKS=true
+VITE_API_BASE_URL=
+VITE_ASSET_BASE_URL=
 ```
 
-Keep `VITE_USE_MOCKS=true` while the backend is unavailable. The current mock search/targets responses are intentionally empty and must not be mistaken for real survey data. Mock-backed screens show a `DEMO DATA` label. Do not commit `.env.development`.
+Keep `VITE_USE_MOCKS=true` while the backend is unavailable. MSW intercepts API JSON on the frontend origin. Current mock data contains all five backend-provided preset target records and one verified WISE 0855 observation response; the other four targets are explicitly marked as awaiting observation exports. Do not commit `.env.development`.
 
-When the backend is reachable, set `VITE_API_BASE_URL` to its base URL and set `VITE_USE_MOCKS=false`.
+When the backend is reachable directly, set `VITE_USE_MOCKS=false` and `VITE_API_BASE_URL=http://localhost:8000` (or the backend host). To keep mocked JSON while loading genuine preview/cache PNGs from a backend host or Cloudflare tunnel, leave mocks enabled and set `VITE_ASSET_BASE_URL` to that backend origin.
 
 ## Quality checks
 
