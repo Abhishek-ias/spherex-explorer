@@ -68,7 +68,7 @@ test('guided tour moves between its steps', async ({ page }) => {
   await page.getByRole('button', { name: 'Next' }).click()
   await expect(page.getByRole('heading', { name: 'Explore observations' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByRole('button', { name: 'Previous tour step' }).click()
   await expect(page.getByRole('heading', { name: 'Search a position' })).toBeVisible()
 })
 
@@ -182,14 +182,14 @@ test('coordinate fields announce helper guidance and validation errors', async (
 test('homepage and empty explorer do not overflow at key screen widths', async ({ page }) => {
   for (const width of [320, 375, 768, 1024, 1366, 1920]) {
     await page.setViewportSize({ width, height: 900 })
-    await page.goto('/')
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     const home = await page.evaluate(() => ({
       viewport: document.documentElement.clientWidth,
       content: document.documentElement.scrollWidth,
     }))
     expect(home.content, `homepage overflow at ${width}px`).toBeLessThanOrEqual(home.viewport)
 
-    await page.goto('/explore?ra=153.188750&dec=-12.582417&fov=15')
+    await page.goto('/explore?ra=153.188750&dec=-12.582417&fov=15', { waitUntil: 'domcontentloaded' })
     const explorer = await page.evaluate(() => {
       const viewport = window.innerWidth
       const overflowingElements = Array.from(document.body.querySelectorAll('*'))
@@ -236,7 +236,7 @@ test('homepage and empty explorer do not overflow at key screen widths', async (
 test('About page fits narrow and wide screens', async ({ page }) => {
   for (const width of [320, 375, 768, 1024, 1366, 1920]) {
     await page.setViewportSize({ width, height: 900 })
-    await page.goto('/about')
+    await page.goto('/about', { waitUntil: 'domcontentloaded' })
     const dimensions = await page.evaluate(() => ({
       viewport: document.documentElement.clientWidth,
       content: document.documentElement.scrollWidth,
