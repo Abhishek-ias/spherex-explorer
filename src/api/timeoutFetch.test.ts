@@ -25,6 +25,7 @@ afterEach(() => {
 
 describe('createTimeoutFetch', () => {
   it('passes through the response and clears its timeout', async () => {
+    vi.useFakeTimers()
     const response = new Response('ok', { status: 200 })
     const baseFetch = vi.fn<typeof fetch>().mockResolvedValue(response)
     const timedFetch = createTimeoutFetch(baseFetch, 5000)
@@ -38,13 +39,20 @@ describe('createTimeoutFetch', () => {
     vi.useFakeTimers()
     const baseFetch = createSignalAwareFetch()
     const timedFetch = createTimeoutFetch(baseFetch, 2500)
-    const request = timedFetch('https://api.example.test/search')
+    const request = timedFetch('https://api.example.test/search').then(
+      (response) => ({ kind: 'response' as const, response }),
+      (error: unknown) => ({ kind: 'error' as const, error }),
+    )
 
     await vi.advanceTimersByTimeAsync(2500)
 
-    await expect(request).rejects.toMatchObject({
-      name: 'TimeoutError',
-      message: 'SPHEREx API request timed out after 2500 ms.',
+    const outcome = await request
+    expect(outcome).toMatchObject({
+      kind: 'error',
+      error: {
+        name: 'TimeoutError',
+        message: 'SPHEREx API request timed out after 2500 ms.',
+      },
     })
     expect(vi.getTimerCount()).toBe(0)
   })
@@ -57,11 +65,15 @@ describe('createTimeoutFetch', () => {
     const reason = new DOMException('Query was replaced.', 'AbortError')
     const request = timedFetch('https://api.example.test/search', {
       signal: caller.signal,
-    })
+    }).then(
+      (response) => ({ kind: 'response' as const, response }),
+      (error: unknown) => ({ kind: 'error' as const, error }),
+    )
 
     caller.abort(reason)
 
-    await expect(request).rejects.toBe(reason)
+    const outcome = await request
+    expect(outcome).toEqual({ kind: 'error', error: reason })
     expect(vi.getTimerCount()).toBe(0)
   })
 
