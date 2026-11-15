@@ -6,6 +6,47 @@ test('homepage reports the active mock API connection', async ({ page }) => {
   await expect(page.getByText('v2.0.0')).toBeVisible()
 })
 
+test('preset targets display all five backend-provided records', async ({ page }) => {
+  await page.goto('/')
+
+  for (const name of [
+    'WISE 0855-0714',
+    "Barnard's Star",
+    'Epsilon Indi Ba/Bb',
+    'RW Aurigae',
+    'R Draconis',
+  ]) {
+    await expect(page.getByRole('button', { name: new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\test('homepage exposes coordinate search and supported FOV options', async ({ page }) => {')) })).toBeVisible()
+  }
+
+  await expect(page.getByText('Verified observation fixture available')).toBeVisible()
+  await expect(page.getByText('Preset coordinates available · observation export pending')).toHaveCount(4)
+})
+
+test('WISE 0855 opens its verified two-frame observation workspace', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByRole('button', { name: /WISE 0855-0714/ }).click()
+
+  await expect(page).toHaveURL(/\/explore\?/)
+  await expect(page.getByRole('heading', { name: 'Observation Explorer' })).toBeVisible()
+  await expect(page.getByText(/2 observations/)).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Observation timeline' })).toBeVisible()
+  await expect(page.getByText('2 of 2 frames')).toBeVisible()
+  await expect(page.getByText('2025W19_1B_0116_2D6')).toBeVisible()
+  await expect(page.getByText('2025W19_1B_0138_1D6')).toBeVisible()
+})
+
+test('preset without observation export reports the backend fixture gap', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByRole('button', { name: /Barnard's Star/ }).click()
+
+  await expect(page).toHaveURL(/\/explore\?/)
+  await expect(page.getByRole('heading', { name: 'Search failed' })).toBeVisible()
+  await expect(page.getByText(/verified observation export for Barnard's Star was not included/i)).toBeVisible()
+})
+
 test('homepage exposes coordinate search and supported FOV options', async ({ page }) => {
   await page.goto('/')
 
