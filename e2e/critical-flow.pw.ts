@@ -116,3 +116,39 @@ test('invalid shared URLs provide coordinate-specific feedback', async ({ page }
   await expect(page.getByRole('alert')).toContainText('less than 360')
   await expect(page.getByRole('link', { name: 'Return to coordinate search' })).toBeVisible()
 })
+
+
+test('coordinate inputs expose keyboard focus and associated validation feedback', async ({ page }) => {
+  await page.goto('/')
+
+  const ra = page.getByLabel('Right Ascension (RA)')
+  await ra.focus()
+  await expect(ra).toBeFocused()
+  await ra.fill('400')
+
+  await expect(ra).toHaveAttribute('aria-invalid', 'true')
+  await expect(ra).toHaveAttribute('aria-describedby', 'ra-error')
+  await expect(page.locator('#ra-error')).toHaveText('Coordinate is outside the allowed range.')
+  await expect(page.getByRole('button', { name: 'Search' })).toBeDisabled()
+})
+
+test('coordinate search can be submitted with the keyboard', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByLabel('Right Ascension (RA)').fill('153.188750')
+  const dec = page.getByLabel('Declination (Dec)')
+  await dec.fill('-12.582417')
+  await dec.press('Enter')
+
+  await expect(page).toHaveURL(/\/explore\?/)
+  await expect(page.getByRole('heading', { name: 'No observations found' })).toBeVisible()
+})
+
+test('About page explains data sources and scientific limitations', async ({ page }) => {
+  await page.goto('/about')
+
+  await expect(page.getByRole('heading', { name: 'About SPHEREx Explorer' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Data sources' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Scientific limitations' })).toBeVisible()
+  await expect(page.getByText(/not confirmed discoveries/i)).toBeVisible()
+})
