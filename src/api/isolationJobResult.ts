@@ -28,6 +28,20 @@ const sourceMeasurementSchema = z.object({
   bandwidth_um: z.number().nullable(),
   date_obs: z.string(),
   detector: z.string(),
+  flux_ujy: z.number().optional(),
+  flux_err_ujy: z.number().optional(),
+  position_err_arcsec: z.number().optional(),
+  flag_labels: z.array(z.string()).optional(),
+  gaia_crossmatch: z.object({
+    matched: z.boolean(),
+    discovery_status: z.string().optional(),
+    gaia_source_id: z.string().nullable().optional(),
+    separation_arcsec: z.number().nullable().optional(),
+    g_mag: z.number().nullable().optional(),
+    pmra_mas_yr: z.number().nullable().optional(),
+    pmdec_mas_yr: z.number().nullable().optional(),
+    parallax_mas: z.number().nullable().optional(),
+  }).nullable().optional(),
 })
 
 const isolatedEpochFrameSchema = z.object({
@@ -46,6 +60,8 @@ export const isolateResponseSchema = z.object({
   angular_displacement_arcsec: z.number(),
   time_baseline_days: z.number(),
   apparent_motion_arcsec_per_yr: z.number(),
+  displacement_err_arcsec: z.number().optional(),
+  motion_err_arcsec_per_yr: z.number().optional(),
 })
 
 export type ParsedIsolationResponse = z.infer<typeof isolateResponseSchema> & IsolateResponse

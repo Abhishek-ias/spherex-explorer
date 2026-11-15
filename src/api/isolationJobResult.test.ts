@@ -22,6 +22,11 @@ const measurement = {
   bandwidth_um: null,
   date_obs: '2025-01-01T00:00:00Z',
   detector: 'DEMO-DET',
+  flux_ujy: 10.5,
+  flux_err_ujy: 0.5,
+  position_err_arcsec: 0.3,
+  flag_labels: ['SOURCE'],
+  gaia_crossmatch: null,
 }
 
 const response = {
@@ -42,6 +47,8 @@ const response = {
   angular_displacement_arcsec: 1.5,
   time_baseline_days: 1,
   apparent_motion_arcsec_per_yr: 547.8,
+  displacement_err_arcsec: 0.12,
+  motion_err_arcsec_per_yr: 0.05,
 }
 
 describe('parseIsolationJobResult', () => {
@@ -57,6 +64,21 @@ describe('parseIsolationJobResult', () => {
     expect(parsed?.late_epoch_isolated.follow_object_with_bg_png_url).toBe(
       '/api/cache/follow-bg-late.png',
     )
+  })
+
+  it('preserves point flux, source flags and isolation uncertainty fields', () => {
+    const parsed = parseIsolationJobResult(response)
+    expect(parsed?.early_epoch_isolated.source_measurement).toMatchObject({
+      flux_ujy: 10.5,
+      flux_err_ujy: 0.5,
+      position_err_arcsec: 0.3,
+      flag_labels: ['SOURCE'],
+      gaia_crossmatch: null,
+    })
+    expect(parsed).toMatchObject({
+      displacement_err_arcsec: 0.12,
+      motion_err_arcsec_per_yr: 0.05,
+    })
   })
 
   it('accepts legacy v2.0 results without follow-object image resources', () => {

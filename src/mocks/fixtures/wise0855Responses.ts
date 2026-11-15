@@ -2,13 +2,58 @@ import type { components } from '@/api/schema'
 import { wise0855Search } from './wise0855Search'
 
 type Source = components['schemas']['SourceIdentificationResponse']
+type GaiaCrossmatchV21 = {
+  matched: boolean
+  discovery_status?: string
+  gaia_source_id: string | null
+  separation_arcsec: number | null
+  g_mag: number | null
+  pmra_mas_yr: number | null
+  pmdec_mas_yr: number | null
+  parallax_mas: number | null
+}
+type BackendV21Source = Source & {
+  flux_ujy: number
+  flux_err_ujy: number
+  position_err_arcsec: number
+  flag_labels: string[]
+  gaia_crossmatch: GaiaCrossmatchV21 | null
+}
 type OverlayResponse = components['schemas']['OverlayResponse']
-type BackendV21OverlayResponse = OverlayResponse & { wise_image_png_url: string }
+type BackendV21OverlayResponse = OverlayResponse & {
+  wise_image_png_url: string
+  fov_coverage_fraction: number
+  coverage_complete: boolean
+  coverage_warning: string | null
+}
 type DifferenceResponse = components['schemas']['DifferenceResponse']
-type BackendV21DifferenceResponse = DifferenceResponse & { significance_png_url: string }
+type DifferenceCandidate = components['schemas']['DifferenceCandidate']
+type BackendV21Candidate = Omit<DifferenceCandidate, 'match'> & {
+  match: DifferenceCandidate['match'] & {
+    gaia_source_id: string | null
+    discovery_status: string
+  }
+}
+type BackendV21DifferenceResponse = Omit<DifferenceResponse, 'candidates'> & {
+  significance_png_url: string
+  early_wavelength_um: number
+  late_wavelength_um: number
+  photometric_scale_factor: number
+  wavelength_compatible: boolean
+  scientific_warning: string | null
+  display_scale: {
+    vmin: number
+    vmax: number
+    unit: string
+    stretch: string
+    colormap: string
+  }
+  candidates: BackendV21Candidate[]
+}
 type IsolateResponse = components['schemas']['IsolateResponse']
 type IsolatedEpochFrame = components['schemas']['IsolatedEpochFrame']
-type BackendV21IsolatedEpochFrame = IsolatedEpochFrame & {
+type BackendV21IsolatedEpochFrame = Omit<IsolatedEpochFrame, 'source_measurement'> & {
+  source_measurement: BackendV21Source
   follow_object_png_url: string
   follow_object_with_bg_png_url: string
 }
@@ -18,6 +63,8 @@ type BackendV21IsolateResponse = Omit<
 > & {
   early_epoch_isolated: BackendV21IsolatedEpochFrame
   late_epoch_isolated: BackendV21IsolatedEpochFrame
+  displacement_err_arcsec: number
+  motion_err_arcsec_per_yr: number
 }
 
 const frames = wise0855Search.epochs[0].observations
@@ -47,12 +94,29 @@ export const wise0855IdentifiedSource = {
   bandwidth_um: 0.1185,
   date_obs: '2025-05-08T12:14:00.000',
   detector: '6',
-} satisfies Source
+  flux_ujy: 1637.671,
+  flux_err_ujy: 126.327,
+  position_err_arcsec: 0.362,
+  flag_labels: ['SOURCE'],
+  gaia_crossmatch: {
+    matched: false,
+    discovery_status: 'unmatched_candidate_requires_verification',
+    gaia_source_id: null,
+    separation_arcsec: 18.42,
+    g_mag: null,
+    pmra_mas_yr: null,
+    pmdec_mas_yr: null,
+    parallax_mas: null,
+  },
+} satisfies BackendV21Source
 
 // Backend-provided POST /api/overlays sample. The WISE raster URL is an additive
 // v2.1 field from the teammate's handoff; generated v2.0 types remain unchanged.
 export const wise0855Overlays = {
   wise_image_png_url: '/api/cache/wise_layer_a1b2c3d4e5f67890.png',
+  fov_coverage_fraction: 0.9982,
+  coverage_complete: true,
+  coverage_warning: null,
   image_shape_ny_nx: [146, 146],
   spherex_obs_date: '2025-05-08T12:14:00.000',
   target_px: { x: 72.5, y: 72.5 },
@@ -122,6 +186,18 @@ export const wise0855Difference = {
   diff_key: '8f4b21a90c3e7d12',
   difference_png_url: '/api/cache/diff_8f4b21a90c3e7d12.png',
   significance_png_url: '/api/cache/sig_8f4b21a90c3e7d12.png',
+  early_wavelength_um: 4.8604,
+  late_wavelength_um: 4.8619,
+  photometric_scale_factor: 1.0124,
+  wavelength_compatible: true,
+  scientific_warning: null,
+  display_scale: {
+    vmin: -0.85,
+    vmax: 0.85,
+    unit: 'MJy/sr',
+    stretch: 'linear',
+    colormap: 'coolwarm',
+  },
   early_date: '2025-05-08T12:14:00.000',
   late_date: '2025-05-08T18:42:00.000',
   shape_ny_nx: [146, 146],
@@ -149,6 +225,8 @@ export const wise0855Difference = {
         counterpart_px: { x: 72.35, y: 72.48 },
         separation_arcsec: 8.102,
         apparent_motion_arcsec_yr: 8.081,
+        gaia_source_id: null,
+        discovery_status: 'unmatched_candidate_requires_verification',
       },
     },
   ],
@@ -163,7 +241,7 @@ export const wise0855Isolation = {
     follow_object_png_url: '/api/cache/follow_iso_c62d04923b470855.png',
     follow_object_with_bg_png_url: '/api/cache/follow_bg_c62d04923b470855.png',
     target_px: { x: 72.81, y: 71.89 },
-    source_measurement: wise0855IdentifiedSource,
+    source_measurement: { ...wise0855IdentifiedSource, gaia_crossmatch: null },
   },
   late_epoch_isolated: {
     isolated_png_url: '/api/cache/isolated_91e3a10b44f82c10.png',
@@ -191,6 +269,11 @@ export const wise0855Isolation = {
       bandwidth_um: 0.1186,
       date_obs: '2026-05-09T10:20:00.000',
       detector: '6',
+      flux_ujy: 1609.446,
+      flux_err_ujy: 124.282,
+      position_err_arcsec: 0.363,
+      flag_labels: ['SOURCE'],
+      gaia_crossmatch: null,
     },
   },
   angular_displacement_arcsec: 8.099,

@@ -19,6 +19,8 @@ const candidateMatchSchema = z.object({
   counterpart_px: pixelPointSchema.nullable().optional(),
   separation_arcsec: z.number().nullable().optional(),
   apparent_motion_arcsec_yr: z.number().nullable().optional(),
+  gaia_source_id: z.string().nullable().optional(),
+  discovery_status: z.string().optional(),
 })
 
 const differenceCandidateSchema = z.object({
@@ -42,6 +44,18 @@ export const differenceResponseSchema = z.object({
   difference_png_url: z.string(),
   // Optional v2.1 response extension supplied by the backend handoff.
   significance_png_url: z.string().min(1).optional(),
+  early_wavelength_um: z.number().optional(),
+  late_wavelength_um: z.number().optional(),
+  photometric_scale_factor: z.number().optional(),
+  wavelength_compatible: z.boolean().optional(),
+  scientific_warning: z.string().nullable().optional(),
+  display_scale: z.object({
+    vmin: z.number(),
+    vmax: z.number(),
+    unit: z.string(),
+    stretch: z.string(),
+    colormap: z.string(),
+  }).optional(),
   early_date: z.string(),
   late_date: z.string(),
   shape_ny_nx: z.array(z.number()),
