@@ -1,12 +1,19 @@
 import { API_BASE_URL } from '@/api/baseUrl'
 import { http, HttpResponse } from 'msw'
 import type { components } from '@/api/schema'
-
+import { presetTargets } from './fixtures/presetTargets'
+import { wise0855Search } from './fixtures/wise0855Search'
 
 type SearchRequest = components['schemas']['SearchRequest']
 type SearchResponse = components['schemas']['SearchResponse']
-type PresetTarget = components['schemas']['PresetTarget']
 type HealthResponse = components['schemas']['HealthResponse']
+
+const WISE_0855 = presetTargets.find((target) => target.id === 'wise-0855')
+const FIXTURE_TOLERANCE_DEG = 0.000001
+
+function nearlyEqual(left: number, right: number): boolean {
+  return Math.abs(left - right) <= FIXTURE_TOLERANCE_DEG
+}
 
 export const handlers = [
   http.get(`${API_BASE_URL}/api/health`, () =>
@@ -17,30 +24,66 @@ export const handlers = [
     } satisfies HealthResponse),
   ),
 
-  http.get(`${API_BASE_URL}/api/targets`, () => {
-    // No preset target records have been supplied as mock fixtures yet.
-    return HttpResponse.json([] satisfies PresetTarget[])
-  }),
+  http.get(`${API_BASE_URL}/api/targets`, () =>
+    HttpResponse.json(presetTargets),
+  ),
 
   http.post(`${API_BASE_URL}/api/search`, async ({ request }) => {
     const body = (await request.json()) as SearchRequest
 
-    // The frontend sends validated coordinates as decimal degrees.
     if (
       typeof body.ra !== 'number' ||
       typeof body.dec !== 'number' ||
       !Number.isFinite(body.ra) ||
-      !Number.isFinite(body.dec)
+      !Number.isFinite(body.dec) ||
+      body.ra < 0 ||
+      body.ra >= 360 ||
+      body.dec < -90 ||
+      body.dec > 90
     ) {
       return HttpResponse.json(
-        { detail: [] },
+        { detail: 'Invalid right ascension or declination.' },
         { status: 422 },
       )
     }
 
-    // Empty DEMO DATA response: no observation or scientific measurement
-    // is being claimed. target_px is required by the current OpenAPI schema;
-    // it must not be rendered when there are no returned epochs.
+    // The handoff contains a verified 15-arcmin WISE 0855 sample only.
+    if (
+      WISE_0855 &&
+      nearlyEqual(body.ra, WISE_0855.ra_deg) &&
+      nearlyEqual(body.dec, WISE_0855.dec_deg)
+    ) {
+      if ((body.fov_arcmin ?? 15) !== 15) {
+        return HttpResponse.json(
+          {
+            detail:
+              'The supplied WISE 0855 sample fixture is verified for a 15 arcmin field of view only.',
+          },
+          { status: 503 },
+        )
+      }
+
+      return HttpResponse.json(wise0855Search)
+    }
+
+    const knownTarget = presetTargets.find(
+      (target) =>
+        nearlyEqual(body.ra, target.ra_deg) &&
+        nearlyEqual(body.dec, target.dec_deg),
+    )
+
+    if (knownTarget) {
+      return HttpResponse.json(
+        {
+          detail:
+            `The target record is available, but a verified observation export for ${knownTarget.name} was not included in the backend handoff. Run the supplied IRSA frontend-fixture export script and add search_${knownTarget.id}.json before enabling its demo search.`,
+        },
+        { status: 503 },
+      )
+    }
+
+    // Generic coordinates remain an explicitly empty DEMO DATA response.
+    // No synthetic observations or scientific measurements are generated.
     const response: SearchResponse = {
       query_ra_deg: body.ra,
       query_dec_deg: body.dec,
