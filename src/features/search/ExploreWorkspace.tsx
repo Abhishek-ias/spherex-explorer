@@ -13,6 +13,7 @@ import WebMExport from './WebMExport'
 import ObservationTimeline from './ObservationTimeline'
 import { searchParamsSchema } from './searchParams'
 import PanelErrorBoundary from './PanelErrorBoundary'
+import { useExplorerStore } from '@/store/explorerStore'
 
 function readOpacityParameter(params: URLSearchParams, key: string): number {
   const value = params.get(key)
@@ -24,6 +25,41 @@ function readOpacityParameter(params: URLSearchParams, key: string): number {
 
 export default function ExploreWorkspace() {
   const [params, setParams] = useSearchParams()
+  const urlSelectedFrameId = params.get('frame') ?? ''
+  const urlCompareFrameId = params.get('compare') ?? ''
+  const urlTimelineBand = params.get('band') ?? 'all'
+  const urlLayers = params.get('layers') ?? ''
+  const urlGaiaOpacity = readOpacityParameter(params, 'gaiaOpacity')
+  const urlWiseOpacity = readOpacityParameter(params, 'wiseOpacity')
+  const uiStateKey = JSON.stringify([
+    urlSelectedFrameId,
+    urlCompareFrameId,
+    urlTimelineBand,
+    urlLayers,
+    urlGaiaOpacity,
+    urlWiseOpacity,
+  ])
+
+  const hydrateFromUrl = useExplorerStore((state) => state.hydrateFromUrl)
+  const hydrationKey = useExplorerStore((state) => state.hydrationKey)
+  const uiStateHydrated = hydrationKey === uiStateKey
+  const selectedId = useExplorerStore((state) => state.selectedFrameId)
+  const setSelectedId = useExplorerStore((state) => state.setSelectedFrameId)
+  const compareId = useExplorerStore((state) => state.compareFrameId)
+  const setCompareId = useExplorerStore((state) => state.setCompareFrameId)
+  const timelineBand = useExplorerStore((state) => state.timelineBand)
+  const setTimelineBand = useExplorerStore((state) => state.setTimelineBand)
+  const selectedOverlay = useExplorerStore((state) => state.selectedOverlay)
+  const setSelectedOverlay = useExplorerStore((state) => state.setSelectedOverlay)
+  const gaiaVisible = useExplorerStore((state) => state.gaiaVisible)
+  const setGaiaVisible = useExplorerStore((state) => state.setGaiaVisible)
+  const wiseVisible = useExplorerStore((state) => state.wiseVisible)
+  const setWiseVisible = useExplorerStore((state) => state.setWiseVisible)
+  const gaiaOpacity = useExplorerStore((state) => state.gaiaOpacity)
+  const setGaiaOpacity = useExplorerStore((state) => state.setGaiaOpacity)
+  const wiseOpacity = useExplorerStore((state) => state.wiseOpacity)
+  const setWiseOpacity = useExplorerStore((state) => state.setWiseOpacity)
+
   const parsed = searchParamsSchema.safeParse({
     ra: params.get('ra'),
     dec: params.get('dec'),
@@ -43,14 +79,6 @@ export default function ExploreWorkspace() {
 
   const [identifyError, setIdentifyError] = useState('')
   const [pendingSelection, setPendingSelection] = useState<{ x: number; y: number } | null>(null)
-  const [selectedOverlay, setSelectedOverlay] = useState<{
-    id: string
-    kind: 'gaia' | 'wise'
-  } | null>(null)
-  const [gaiaVisible, setGaiaVisible] = useState(() => params.get('layers')?.split(',').includes('gaia') ?? false)
-  const [wiseVisible, setWiseVisible] = useState(() => params.get('layers')?.split(',').includes('wise') ?? false)
-  const [gaiaOpacity, setGaiaOpacity] = useState(() => readOpacityParameter(params, 'gaiaOpacity'))
-  const [wiseOpacity, setWiseOpacity] = useState(() => readOpacityParameter(params, 'wiseOpacity'))
 
   const timelineEntries = useMemo(
     () => data?.epochs.flatMap((epoch) =>
@@ -66,9 +94,6 @@ export default function ExploreWorkspace() {
     [timelineEntries],
   )
 
-  const [selectedId, setSelectedId] = useState(() => params.get('frame') ?? '')
-  const [compareId, setCompareId] = useState(() => params.get('compare') ?? '')
-  const [timelineBand, setTimelineBand] = useState(() => params.get('band') ?? 'all')
   const selectedFrame = frames.find((frame) => frame.obs_id === selectedId) ?? frames[0]
 
 
@@ -88,7 +113,28 @@ export default function ExploreWorkspace() {
     identify.reset()
     setIdentifyError('')
     setSelectedId(observationId)
-  }, [identify.reset])
+  }, [identify.reset, setSelectedId])
+
+  useEffect(() => {
+    hydrateFromUrl(uiStateKey, {
+      selectedFrameId: urlSelectedFrameId,
+      compareFrameId: urlCompareFrameId,
+      timelineBand: urlTimelineBand,
+      gaiaVisible: urlLayers.split(',').includes('gaia'),
+      wiseVisible: urlLayers.split(',').includes('wise'),
+      gaiaOpacity: urlGaiaOpacity,
+      wiseOpacity: urlWiseOpacity,
+    })
+  }, [
+    hydrateFromUrl,
+    uiStateKey,
+    urlSelectedFrameId,
+    urlCompareFrameId,
+    urlTimelineBand,
+    urlLayers,
+    urlGaiaOpacity,
+    urlWiseOpacity,
+  ])
 
   useEffect(() => () => {
     identifyAbortRef.current?.abort()
@@ -113,6 +159,8 @@ export default function ExploreWorkspace() {
   }, [])
 
   useEffect(() => {
+    if (!uiStateHydrated) return
+
     const next = new URLSearchParams(params)
 
     if (selectedFrameId) next.set('frame', selectedFrameId)
@@ -151,6 +199,7 @@ export default function ExploreWorkspace() {
     identify.data?.object_id,
     params,
     setParams,
+    uiStateHydrated,
   ])
 
   const overlayMarkers = useMemo<OverlayMarker[]>(() => {
