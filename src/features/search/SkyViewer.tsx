@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent, WheelEvent, MouseEvent, KeyboardEvent } from 'react'
 import type { components } from '@/api/schema'
-import { findOverlayMarkerAtPoint, getImageDrawGeometry } from './viewerGeometry'
+import {
+  findOverlayMarkerAtPoint,
+  getImageDrawGeometry,
+  moveKeyboardImagePoint,
+} from './viewerGeometry'
 
 type PixelPoint = components['schemas']['PixelPoint']
 
@@ -46,7 +50,11 @@ export default function SkyViewer({
   const drag = useRef({ active: false, moved: false, x: 0, y: 0 })
   const imageSize = useRef({ width: 0, height: 0 })
   const clickTimer = useRef<number | null>(null)
+  const keyboardPoint = useRef({ x: 0.5, y: 0.5 })
+  const keyboardFocus = useRef(false)
   const [imageError, setImageError] = useState(false)
+  const [canvasUnavailable, setCanvasUnavailable] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => () => {
     if (clickTimer.current !== null) {
@@ -57,7 +65,15 @@ export default function SkyViewer({
   useEffect(() => {
     const canvas = canvasRef.current
     const context = canvas?.getContext('2d')
-    if (!canvas || !context) return
+    if (!canvas) return
+    if (!context) {
+      setCanvasUnavailable(true)
+      return
+    }
+
+    setCanvasUnavailable(false)
+    setImageError(false)
+    imageSize.current = { width: 0, height: 0 }
 
     let image: HTMLImageElement | null = null
     let loaded = false
@@ -119,6 +135,24 @@ export default function SkyViewer({
         context.lineWidth = 2
         context.stroke()
         context.setLineDash([])
+      }
+
+      if (keyboardFocus.current) {
+        const cursorX = x + keyboardPoint.current.x * drawWidth
+        const cursorY = y + keyboardPoint.current.y * drawHeight
+        context.beginPath()
+        context.arc(cursorX, cursorY, 10, 0, Math.PI * 2)
+        context.setLineDash([4, 3])
+        context.strokeStyle = '#facc15'
+        context.lineWidth = 2
+        context.stroke()
+        context.setLineDash([])
+        context.beginPath()
+        context.moveTo(cursorX - 15, cursorY)
+        context.lineTo(cursorX + 15, cursorY)
+        context.moveTo(cursorX, cursorY - 15)
+        context.lineTo(cursorX, cursorY + 15)
+        context.stroke()
       }
 
       if (targetPx) {
@@ -195,7 +229,7 @@ export default function SkyViewer({
         image.onerror = null
       }
     }
-  }, [imageUrl, targetPx, imageError, overlayMarkers, pendingSelection, selectedObject])
+  }, [imageUrl, retryCount, targetPx, overlayMarkers, pendingSelection, selectedObject])
 
   function zoomBy(factor: number) {
     view.current.zoom = Math.max(0.5, Math.min(8, view.current.zoom * factor))
@@ -206,14 +240,63 @@ export default function SkyViewer({
     if (event.key === '+' || event.key === '=') {
       event.preventDefault()
       zoomBy(1.25)
-    } else if (event.key === '-') {
+      return
+    }
+    if (event.key === '-') {
       event.preventDefault()
       zoomBy(1 / 1.25)
-    } else if (event.key === '0') {
+      return
+    }
+    if (event.key === '0') {
       event.preventDefault()
       view.current = { zoom: 1, x: 0, y: 0 }
       redraw.current()
+      return
     }
+
+    const nextPoint = moveKeyboardImagePoint(keyboardPoint.current, event.key)
+    if (nextPoint) {
+      event.preventDefault()
+      keyboardPoint.current = nextPoint
+      redraw.current()
+      return
+    }
+
+    if (event.key === 'Enter' && onIdentify && imageSize.current.width > 0) {
+      event.preventDefault()
+      const canvas = event.currentTarget
+      const geometry = getImageDrawGeometry(
+        canvas.clientWidth,
+        canvas.clientHeight,
+        imageSize.current.width,
+        imageSize.current.height,
+        view.current.zoom,
+        view.current.x,
+        view.current.y,
+      )
+      if (!geometry) return
+      onIdentify(
+        keyboardPoint.current.x * geometry.width,
+        keyboardPoint.current.y * geometry.height,
+        geometry.width,
+        geometry.height,
+      )
+    }
+  }
+
+  function handleCanvasFocus() {
+    keyboardFocus.current = true
+    redraw.current()
+  }
+
+  function handleCanvasBlur() {
+    keyboardFocus.current = false
+    redraw.current()
+  }
+
+  function retryPreview() {
+    setImageError(false)
+    setRetryCount((count) => count + 1)
   }
 
   function handleWheel(event: WheelEvent<HTMLCanvasElement>) {
@@ -334,14 +417,17 @@ export default function SkyViewer({
         </div>
       </div>
 
-      {imageUrl && !imageError ? (
+      {imageUrl && !imageError && !canvasUnavailable ? (
         <canvas
           ref={canvasRef}
           role="img"
-          aria-label={`Observation preview: ${title}. Drag to pan, scroll to zoom, click to identify.`}
+          aria-label={`Observation preview: ${title}. Use arrow keys to move the identification cursor and Enter to identify the marked position.`}
+          aria-describedby="sky-viewer-keyboard-help"
           tabIndex={0}
-          aria-keyshortcuts="+ - 0"
-          onKeyDown={handleCanvasKeyDown}
+          aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Enter + - 0"
+          onFocus={handleCanvasFocus}
+          onBlur={handleCanvasBlur}
+          onKeyDown={handleCanvasKeyDown>
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -352,10 +438,25 @@ export default function SkyViewer({
           className="h-[420px] w-full touch-none cursor-crosshair"
         />
       ) : (
-        <div className="flex h-[420px] items-center justify-center p-8 text-center">
-          <p className="text-sm text-observatory-muted">
-            {imageError ? 'Preview image unavailable' : 'No preview image returned'}
-          </p>
+        <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 p-8 text-center"
+          role={imageError ? 'alert' : 'status'}
+          aria-live="polite">
+          {canvasUnavailable && imageUrl && !imageError ? (
+            <>
+              <p className="text-sm text-observatory-muted">Interactive canvas is unavailable. Showing the static preview instead.</p>
+              <img src={imageUrl} alt={`Static observation preview: ${title}`} className="max-h-[420px] max-w-full object-contain" />
+            </>
+          ) : (
+            <p className="text-sm text-observatory-muted">
+              {imageError ? 'Preview image unavailable.' : 'No preview image returned.'}
+            </p>
+          )}
+          {imageError && (
+            <button type="button" onClick={retryPreview}
+              className="rounded-lg border border-observatory-border px-4 py-2 text-sm font-medium hover:border-observatory-cyan focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-observatory-cyan">
+              Retry preview
+            </button>
+          )}
         </div>
       )}
 
@@ -366,6 +467,10 @@ export default function SkyViewer({
         <span><span className="mr-1 text-blue-400">○</span> Gaia DR3</span>
         <span><span className="mr-1 text-amber-400">○</span> WISE</span>
         <span>Drag · Scroll to zoom · Double-click to zoom · Click to identify</span>
+        <p id="sky-viewer-keyboard-help" className="basis-full text-[11px] leading-5">
+          Keyboard: focus the preview, use arrow keys to move the identification cursor,
+          press Enter to identify, + / − to zoom, and 0 to reset.
+        </p>
       </div>
     </div>
   )

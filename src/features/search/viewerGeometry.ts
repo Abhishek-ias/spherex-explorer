@@ -68,3 +68,24 @@ export function findOverlayMarkerAtPoint(
 
   return selected
 }
+
+
+export function moveKeyboardImagePoint(
+  point: CanvasPoint,
+  key: string,
+  step = 0.02,
+): CanvasPoint | null {
+  const delta = Math.max(0, Math.min(1, step))
+  let x = point.x
+  let y = point.y
+
+  switch (key) {
+    case 'ArrowLeft': x -= delta; break
+    case 'ArrowRight': x += delta; break
+    case 'ArrowUp': y -= delta; break
+    case 'ArrowDown': y += delta; break
+    default: return null
+  }
+
+  return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) }
+}

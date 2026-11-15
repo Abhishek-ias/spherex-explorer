@@ -54,14 +54,16 @@ export default function CoordinateSearch() {
 
   return (
     <form
+      role="search"
+      aria-label="Sky coordinate search"
       onSubmit={handleSubmit}
       className="rounded-2xl border border-observatory-border bg-observatory-surface/95 p-5 shadow-2xl sm:p-6"
     >
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-observatory-text">
+          <h2 className="text-sm font-semibold text-observatory-text">
             Search sky coordinates
-          </p>
+          </h2>
           <p className="mt-1 text-xs text-observatory-muted">
             Decimal degrees or sexagesimal coordinates
           </p>
@@ -75,16 +77,20 @@ export default function CoordinateSearch() {
         <label className="block text-sm">
           <span className="mb-2 block font-medium">Right Ascension (RA)</span>
           <input
+            id="right-ascension"
+            name="ra"
+            type="text"
+            required
             value={ra}
             onChange={(event) => setRa(event.target.value)}
             placeholder="10:12:45.3 or 153.188750"
             aria-invalid={Boolean(raError)}
-            aria-describedby={raError ? 'ra-error' : undefined}
+            aria-describedby={raError ? 'coordinate-search-help ra-error' : 'coordinate-search-help'}
             autoComplete="off"
             className="w-full rounded-lg border border-observatory-border bg-[#07101e] px-3 py-3 font-mono text-sm text-observatory-text outline-none transition placeholder:text-observatory-muted/60 focus:border-observatory-cyan"
           />
           {raError && (
-            <span id="ra-error" className="mt-1 block text-xs text-red-400">
+            <span id="ra-error" role="status" aria-live="polite" className="mt-1 block text-xs text-red-400">
               {raError}
             </span>
           )}
@@ -93,16 +99,20 @@ export default function CoordinateSearch() {
         <label className="block text-sm">
           <span className="mb-2 block font-medium">Declination (Dec)</span>
           <input
+            id="declination"
+            name="dec"
+            type="text"
+            required
             value={dec}
             onChange={(event) => setDec(event.target.value)}
             placeholder="-12:34:56.7 or -12.582417"
             aria-invalid={Boolean(decError)}
-            aria-describedby={decError ? 'dec-error' : undefined}
+            aria-describedby={decError ? 'coordinate-search-help dec-error' : 'coordinate-search-help'}
             autoComplete="off"
             className="w-full rounded-lg border border-observatory-border bg-[#07101e] px-3 py-3 font-mono text-sm text-observatory-text outline-none transition placeholder:text-observatory-muted/60 focus:border-observatory-cyan"
           />
           {decError && (
-            <span id="dec-error" className="mt-1 block text-xs text-red-400">
+            <span id="dec-error" role="status" aria-live="polite" className="mt-1 block text-xs text-red-400">
               {decError}
             </span>
           )}
@@ -111,6 +121,8 @@ export default function CoordinateSearch() {
         <label className="block text-sm">
           <span className="mb-2 block font-medium">Field of view</span>
           <select
+            id="field-of-view"
+            name="fov"
             value={fov}
             onChange={(event) => setFov(event.target.value)}
             className="w-full rounded-lg border border-observatory-border bg-[#07101e] px-3 py-3 text-sm text-observatory-text outline-none focus:border-observatory-cyan"
@@ -134,7 +146,7 @@ export default function CoordinateSearch() {
         </div>
       </div>
 
-      <p className="mt-4 text-xs text-observatory-muted">
+      <p id="coordinate-search-help" className="mt-4 text-xs text-observatory-muted">
         Examples: 10:12:45.3, -12:34:56.7 · 153.188750, -12.582417
       </p>
     </form>

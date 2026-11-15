@@ -152,3 +152,62 @@ test('About page explains data sources and scientific limitations', async ({ pag
   await expect(page.getByRole('heading', { name: 'Scientific limitations' })).toBeVisible()
   await expect(page.getByText(/not confirmed discoveries/i)).toBeVisible()
 })
+
+
+test('skip link moves keyboard users to the main content landmark', async ({ page }) => {
+  await page.goto('/')
+  const skipLink = page.getByRole('link', { name: 'Skip to main content' })
+  await expect(skipLink).toBeAttached()
+  await page.keyboard.press('Tab')
+  await expect(skipLink).toBeFocused()
+  await expect(skipLink).toBeVisible()
+  await skipLink.press('Enter')
+  await expect(page.locator('#main-content')).toBeFocused()
+  await expect(page.getByRole('main')).toBeVisible()
+})
+
+test('coordinate fields announce helper guidance and validation errors', async ({ page }) => {
+  await page.goto('/')
+  const ra = page.getByLabel('Right Ascension (RA)')
+  const dec = page.getByLabel('Declination (Dec)')
+  await expect(ra).toHaveAttribute('required', '')
+  await expect(dec).toHaveAttribute('required', '')
+  await expect(ra).toHaveAttribute('aria-describedby', 'coordinate-search-help')
+  await expect(dec).toHaveAttribute('aria-describedby', 'coordinate-search-help')
+  await ra.fill('400')
+  await expect(ra).toHaveAttribute('aria-describedby', 'coordinate-search-help ra-error')
+  await expect(page.locator('#ra-error')).toHaveAttribute('aria-live', 'polite')
+})
+
+test('homepage and empty explorer do not overflow at key screen widths', async ({ page }) => {
+  for (const width of [320, 375, 768, 1024, 1366, 1920]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/')
+    const home = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      content: document.documentElement.scrollWidth,
+    }))
+    expect(home.content, `homepage overflow at ${width}px`).toBeLessThanOrEqual(home.viewport)
+
+    await page.goto('/explore?ra=153.188750&dec=-12.582417&fov=15')
+    const explorer = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      content: document.documentElement.scrollWidth,
+    }))
+    expect(explorer.content, `explorer overflow at ${width}px`).toBeLessThanOrEqual(explorer.viewport)
+    await expect(page.getByRole('heading', { name: 'No observations found' })).toBeVisible()
+  }
+})
+
+test('About page fits narrow and wide screens', async ({ page }) => {
+  for (const width of [320, 375, 768, 1024, 1366, 1920]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/about')
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      content: document.documentElement.scrollWidth,
+    }))
+    expect(dimensions.content, `about page overflow at ${width}px`).toBeLessThanOrEqual(dimensions.viewport)
+    await expect(page.getByRole('heading', { name: 'About SPHEREx Explorer' })).toBeVisible()
+  }
+})

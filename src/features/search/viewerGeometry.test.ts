@@ -30,3 +30,21 @@ describe('viewer geometry and overlay hit testing', () => {
     expect(getImageDrawGeometry(400, 300, 0, 100, 1, 0, 0)).toBeNull()
   })
 })
+
+
+describe('keyboard selection navigation', () => {
+  it('moves the image cursor in each direction', async () => {
+    const { moveKeyboardImagePoint } = await import('./viewerGeometry')
+    expect(moveKeyboardImagePoint({ x: 0.5, y: 0.5 }, 'ArrowLeft')).toEqual({ x: 0.48, y: 0.5 })
+    expect(moveKeyboardImagePoint({ x: 0.5, y: 0.5 }, 'ArrowRight')).toEqual({ x: 0.52, y: 0.5 })
+    expect(moveKeyboardImagePoint({ x: 0.5, y: 0.5 }, 'ArrowUp')).toEqual({ x: 0.5, y: 0.48 })
+    expect(moveKeyboardImagePoint({ x: 0.5, y: 0.5 }, 'ArrowDown')).toEqual({ x: 0.5, y: 0.52 })
+  })
+
+  it('clamps to the image and ignores unrelated keys', async () => {
+    const { moveKeyboardImagePoint } = await import('./viewerGeometry')
+    expect(moveKeyboardImagePoint({ x: 0, y: 1 }, 'ArrowLeft')).toEqual({ x: 0, y: 1 })
+    expect(moveKeyboardImagePoint({ x: 1, y: 0 }, 'ArrowUp')).toEqual({ x: 1, y: 0 })
+    expect(moveKeyboardImagePoint({ x: 0.5, y: 0.5 }, 'Enter')).toBeNull()
+  })
+})

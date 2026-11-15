@@ -10,10 +10,13 @@ const navigation = [
 export default function AppLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-observatory-bg text-observatory-text">
+      <a href="#main-content" className="sr-only z-[100] rounded-md bg-observatory-cyan px-4 py-3 font-semibold text-[#041018] focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
+        Skip to main content
+      </a>
       <header className="border-b border-observatory-border bg-observatory-surface/80">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <NavLink to="/" className="flex items-center gap-3">
-            <Orbit className="h-7 w-7 text-observatory-cyan" />
+          <NavLink to="/" aria-label="SPHEREx Explorer home" className="flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-observatory-cyan">
+            <Orbit aria-hidden="true" className="h-7 w-7 text-observatory-cyan" />
             <span className="font-heading text-lg font-semibold tracking-wide">
               SPHEREx Explorer
             </span>
@@ -58,7 +61,7 @@ export default function AppLayout() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+      <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 outline-none focus-visible:outline-none sm:px-6 sm:py-10">
         <Outlet />
       </main>
 
