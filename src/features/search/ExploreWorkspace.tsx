@@ -12,6 +12,7 @@ import AladinContextMap from './AladinContextMap'
 import WebMExport from './WebMExport'
 import ObservationTimeline from './ObservationTimeline'
 import { searchParamsSchema } from './searchParams'
+import PanelErrorBoundary from './PanelErrorBoundary'
 
 function readOpacityParameter(params: URLSearchParams, key: string): number {
   const value = params.get(key)
@@ -319,51 +320,63 @@ export default function ExploreWorkspace() {
       <div className="flex justify-end"><ShareControls /></div>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-5">
-          <SkyViewer
-            imageUrl={selectedFrame.preview_png_url}
-            targetPx={selectedFrame.target_px}
-            title={selectedFrame.obs_id}
-            onIdentify={identifyAt}
-            overlayMarkers={overlayMarkers}
-            pendingSelection={pendingSelection ?? undefined}
-            selectedObject={identify.data?.target_px}
-            onOverlaySelect={(id, kind) => setSelectedOverlay({ id, kind })}
-          />
+          <PanelErrorBoundary panelName="Sky viewer">
+            <SkyViewer
+              imageUrl={selectedFrame.preview_png_url}
+              targetPx={selectedFrame.target_px}
+              title={selectedFrame.obs_id}
+              onIdentify={identifyAt}
+              overlayMarkers={overlayMarkers}
+              pendingSelection={pendingSelection ?? undefined}
+              selectedObject={identify.data?.target_px}
+              onOverlaySelect={(id, kind) => setSelectedOverlay({ id, kind })}
+            />
+          </PanelErrorBoundary>
 
-          <ObservationTimeline
-            entries={timelineEntries}
-            selectedId={selectedFrame.obs_id}
-            bandValue={timelineBand}
-            onBandChange={setTimelineBand}
-            onSelect={selectFrame}
-          />
+          <PanelErrorBoundary panelName="Observation timeline">
+            <ObservationTimeline
+              entries={timelineEntries}
+              selectedId={selectedFrame.obs_id}
+              bandValue={timelineBand}
+              onBandChange={setTimelineBand}
+              onSelect={selectFrame}
+            />
+          </PanelErrorBoundary>
 
-          <WebMExport
-            frames={frames.map((frame) => ({
-              obsId: frame.obs_id,
-              dateIso: frame.date_iso,
-              imageUrl: frame.preview_png_url,
-            }))}
-          />
+          <PanelErrorBoundary panelName="WebM export">
+            <WebMExport
+              frames={frames.map((frame) => ({
+                obsId: frame.obs_id,
+                dateIso: frame.date_iso,
+                imageUrl: frame.preview_png_url,
+              }))}
+            />
+          </PanelErrorBoundary>
 
-          <SpectrumAnalysis
-            ra={parsed.data.ra}
-            dec={parsed.data.dec}
-            epochs={data.epochs.map((epoch) => epoch.epoch_id)}
-          />
-          <DifferenceAnalysis
-            key={`${selectedFrame.obs_id}-${compareFrame?.obs_id ?? 'none'}`}
-            ra={parsed.data.ra}
-            dec={parsed.data.dec}
-            firstFrame={selectedFrame}
-            secondFrame={compareFrame}
-          />
-          <TrackingIsolation
-            key={`${selectedFrame.obs_id}-${compareFrame?.obs_id ?? 'none'}-${identify.data?.object_id ?? 'unselected'}`}
-            firstFrame={selectedFrame}
-            secondFrame={compareFrame}
-            source={identify.data}
-          />
+          <PanelErrorBoundary panelName="Spectral analysis">
+            <SpectrumAnalysis
+              ra={parsed.data.ra}
+              dec={parsed.data.dec}
+              epochs={data.epochs.map((epoch) => epoch.epoch_id)}
+            />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary panelName="Difference imaging">
+            <DifferenceAnalysis
+              key={`${selectedFrame.obs_id}-${compareFrame?.obs_id ?? 'none'}`}
+              ra={parsed.data.ra}
+              dec={parsed.data.dec}
+              firstFrame={selectedFrame}
+              secondFrame={compareFrame}
+            />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary panelName="Tracking and isolation">
+            <TrackingIsolation
+              key={`${selectedFrame.obs_id}-${compareFrame?.obs_id ?? 'none'}-${identify.data?.object_id ?? 'unselected'}`}
+              firstFrame={selectedFrame}
+              secondFrame={compareFrame}
+              source={identify.data}
+            />
+          </PanelErrorBoundary>
 
           <section id="object-identification" className="rounded-xl border border-observatory-border bg-observatory-surface p-5">
             <h2 className="font-semibold">Object identification</h2>
@@ -433,11 +446,13 @@ export default function ExploreWorkspace() {
             </dl>
           </section>
 
-          <AladinContextMap
-            ra={data.query_ra_deg}
-            dec={data.query_dec_deg}
-            fovArcmin={data.fov_arcmin}
-          />
+          <PanelErrorBoundary panelName="Aladin context map">
+            <AladinContextMap
+              ra={data.query_ra_deg}
+              dec={data.query_dec_deg}
+              fovArcmin={data.fov_arcmin}
+            />
+          </PanelErrorBoundary>
 
           <section className="rounded-xl border border-observatory-border bg-observatory-surface p-5">
             <h2 className="font-semibold">Frame metadata</h2>
