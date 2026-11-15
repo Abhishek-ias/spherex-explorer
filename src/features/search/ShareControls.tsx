@@ -1,16 +1,30 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Copy, Download, FolderOpen, Share2 } from 'lucide-react'
+import { CloudUpload, Copy, Download, FolderOpen, Share2 } from 'lucide-react'
+import { useCreateInvestigationShare } from '@/api/hooks/useServerShare'
+import type { InvestigationShareRequest } from '@/api/v21ShareTypes'
 import {
   createInvestigationBackup,
   restoreInvestigationBackup,
 } from './investigationBackup'
 
-export default function ShareControls() {
+type Props = {
+  serverSharePayload?: InvestigationShareRequest
+  serverSharingEnabled?: boolean
+  serverRestoreMessage?: string
+}
+
+export default function ShareControls({
+  serverSharePayload,
+  serverSharingEnabled = false,
+  serverRestoreMessage,
+}: Props) {
   const location = useLocation()
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState('')
+  const [serverShareUrl, setServerShareUrl] = useState('')
+  const serverShare = useCreateInvestigationShare()
 
   const shareUrl = `${window.location.origin}${location.pathname}${location.search}`
 
@@ -20,6 +34,33 @@ export default function ShareControls() {
       setMessage('Investigation link copied')
     } catch {
       setMessage('Clipboard unavailable. Copy the address from your browser.')
+    }
+  }
+
+  function saveToBackend() {
+    if (!serverSharePayload || !serverSharingEnabled) return
+
+    serverShare.mutate(serverSharePayload, {
+      onSuccess: (result) => {
+        const rawQuery = result.share_query_string.trim()
+        const query = rawQuery.startsWith('?')
+          ? rawQuery
+          : `?${rawQuery.replace(/^\\?/, '')}`
+        const url = `${window.location.origin}/explore${query}`
+        setServerShareUrl(url)
+        setMessage(`Backend investigation saved · ID ${result.share_id}`)
+      },
+      onError: (error) => setMessage(error.message),
+    })
+  }
+
+  async function copyServerShareLink() {
+    if (!serverShareUrl) return
+    try {
+      await navigator.clipboard.writeText(serverShareUrl)
+      setMessage('Backend-saved investigation link copied')
+    } catch {
+      setMessage('Clipboard unavailable. Copy the server share link shown below.')
     }
   }
 
@@ -98,6 +139,39 @@ export default function ShareControls() {
       >
         <Share2 size={15} /> Share
       </button>
+      <button
+        type="button"
+        onClick={saveToBackend}
+        disabled={!serverSharingEnabled || !serverSharePayload || serverShare.isPending}
+        title={
+          serverSharingEnabled
+            ? 'Save this investigation through the backend v2.1 share API'
+            : 'Configure the live backend v2.1 API to enable server-persisted shares'
+        }
+        className="inline-flex items-center gap-2 rounded-lg border border-observatory-border px-4 py-2 text-sm hover:border-observatory-cyan disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <CloudUpload size={15} />
+        {serverShare.isPending ? 'Saving to backend…' : 'Save server share'}
+      </button>
+      {serverShareUrl && (
+        <div className="basis-full rounded-lg border border-observatory-border p-3 text-xs">
+          <p className="text-observatory-muted">Backend-persisted investigation link</p>
+          <p className="mt-1 break-all font-mono">{serverShareUrl}</p>
+          <button type="button" onClick={() => void copyServerShareLink()} className="mt-2 underline">
+            Copy server share link
+          </button>
+        </div>
+      )}
+      {!serverSharingEnabled && (
+        <p className="basis-full text-[11px] text-observatory-muted">
+          Server-persisted sharing requires VITE_USE_MOCKS=false and VITE_API_BASE_URL pointing to the live v2.1 backend.
+        </p>
+      )}
+      {serverRestoreMessage && (
+        <p role="status" className="basis-full text-xs text-observatory-muted">
+          {serverRestoreMessage}
+        </p>
+      )}
       <button
         type="button"
         onClick={saveBackup}

@@ -16,6 +16,12 @@ import PanelErrorBoundary from './PanelErrorBoundary'
 import { useExplorerStore } from '@/store/explorerStore'
 import { resolveApiAssetUrl } from '@/api/resolveApiAssetUrl'
 import { getWiseImageLayerUrl } from './overlayResourceUtils'
+import { useRestoreInvestigationShare } from '@/api/hooks/useServerShare'
+import {
+  applyRestoredShareToSearchParams,
+  readRestoredInvestigationShareState,
+} from '@/api/serverShareState'
+import type { InvestigationShareRequest } from '@/api/v21ShareTypes'
 import {
   readObservationV21Metadata,
   readOverlayV21Metadata,
@@ -32,6 +38,36 @@ function readOpacityParameter(params: URLSearchParams, key: string): number {
 
 export default function ExploreWorkspace() {
   const [params, setParams] = useSearchParams()
+  const serverSharingEnabled =
+    import.meta.env.VITE_USE_MOCKS !== 'true' &&
+    Boolean(import.meta.env.VITE_API_BASE_URL?.trim())
+  const shareId = params.get('share')
+  const serverShare = useRestoreInvestigationShare(shareId, serverSharingEnabled)
+  const restoredShareIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!shareId || !serverShare.data || restoredShareIdRef.current === shareId) return
+    const restored = readRestoredInvestigationShareState(serverShare.data.state)
+    if (!restored) return
+
+    const next = applyRestoredShareToSearchParams(params, restored)
+    restoredShareIdRef.current = shareId
+    if (next.toString() !== params.toString()) {
+      setParams(next, { replace: true })
+    }
+  }, [shareId, serverShare.data, params, setParams])
+
+  const serverRestoreMessage = shareId
+    ? !serverSharingEnabled
+      ? 'This link contains a backend share ID. Connect to the live v2.1 API to retrieve saved state.'
+      : serverShare.isPending
+        ? 'Retrieving the backend-saved investigation…'
+        : serverShare.isError
+          ? serverShare.error.message
+          : serverShare.data
+            ? 'Backend share loaded. Coordinates, FOV and catalogue-layer visibility were restored; the handoff does not define epoch-name to observation-ID mapping.'
+            : ''
+    : ''
   const urlSelectedFrameId = params.get('frame') ?? ''
   const urlCompareFrameId = params.get('compare') ?? ''
   const urlTimelineBand = params.get('band') ?? 'all'
@@ -113,6 +149,33 @@ export default function ExploreWorkspace() {
     : []
 
   const compareFrame = comparableFrames.find((frame) => frame.obs_id === compareId) ?? comparableFrames[0]
+  const selectedEpochId = timelineEntries.find(
+    (entry) => entry.frame.obs_id === selectedFrame?.obs_id,
+  )?.epochId ?? null
+  const compareEpochId = timelineEntries.find(
+    (entry) => entry.frame.obs_id === compareFrame?.obs_id,
+  )?.epochId ?? null
+  const selectedIsLater = Boolean(
+    selectedFrame && compareFrame && selectedFrame.mjd > compareFrame.mjd,
+  )
+  const serverSharePayload: InvestigationShareRequest | undefined =
+    selectedFrame && data
+      ? {
+          ra: data.query_ra_deg,
+          dec: data.query_dec_deg,
+          fov_arcmin: data.fov_arcmin,
+          detector: selectedFrame.detector,
+          earlier_epoch: selectedIsLater ? compareEpochId : selectedEpochId,
+          later_epoch: selectedIsLater ? selectedEpochId : compareEpochId,
+          selected_object_ra: identify.data?.ra_deg ?? null,
+          selected_object_dec: identify.data?.dec_deg ?? null,
+          active_view: identify.data ? 'isolation' : 'explorer',
+          overlays_enabled: [
+            ...(gaiaVisible ? ['gaia_dr3'] : []),
+            ...(wiseVisible ? ['wise'] : []),
+          ],
+        }
+      : undefined
   const selectedFrameMetadata = readObservationV21Metadata(selectedFrame)
   const sourceV21Metadata = readSourceV21Metadata(identify.data)
   const overlayV21Metadata = readOverlayV21Metadata(overlays.data)
@@ -380,7 +443,7 @@ export default function ExploreWorkspace() {
         )}
       </div>
 
-      <div className="flex justify-end"><ShareControls /></div>
+      <div className="flex justify-end"><ShareControls serverSharePayload={serverSharePayload} serverSharingEnabled={serverSharingEnabled} serverRestoreMessage={serverRestoreMessage} /></div>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-5">
           <PanelErrorBoundary panelName="Sky viewer">
