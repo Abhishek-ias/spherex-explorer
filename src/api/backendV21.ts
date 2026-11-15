@@ -204,6 +204,8 @@ export function readQualityFlagDefinitions(value: unknown): Array<{
 
   return Object.entries(definitions)
     .map(([bit, label]) => ({ bit: Number(bit), label }))
-    .filter((entry) => Number.isInteger(entry.bit) && entry.bit >= 0 && typeof entry.label === 'string')
+    .filter((entry): entry is { bit: number; label: string } =>
+      Number.isInteger(entry.bit) && entry.bit >= 0 && typeof entry.label === 'string'
+    )
     .sort((left, right) => left.bit - right.bit)
 }
