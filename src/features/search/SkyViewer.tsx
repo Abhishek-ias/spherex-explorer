@@ -69,7 +69,7 @@ export default function SkyViewer({
     const context = canvas?.getContext('2d')
     if (!canvas) return
     if (!context) {
-      setCanvasUnavailableUrl(imageUrl)
+      queueMicrotask(() => setCanvasUnavailableUrl(imageUrl))
       return
     }
 
@@ -425,7 +425,7 @@ export default function SkyViewer({
           aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Enter + - 0"
           onFocus={handleCanvasFocus}
           onBlur={handleCanvasBlur}
-          onKeyDown={handleCanvasKeyDown}>
+          onKeyDown={handleCanvasKeyDown}
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
