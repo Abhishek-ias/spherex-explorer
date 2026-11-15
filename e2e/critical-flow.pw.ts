@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
 
+test('homepage reports the active mock API connection', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('status', { name: 'Mock API' })).toBeVisible()
+  await expect(page.getByText('v2.0.0')).toBeVisible()
+})
+
 test('homepage exposes coordinate search and supported FOV options', async ({ page }) => {
   await page.goto('/')
 
