@@ -92,6 +92,7 @@ export default function DifferenceAnalysis({
             setJobFallbackMessage('')
             difference.reset()
             job.reset()
+            setSelectedCandidateId(null)
             job.submit.mutate(jobPayload)
           }}
           className="rounded-lg bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
@@ -104,6 +105,7 @@ export default function DifferenceAnalysis({
           onClick={() => {
             setJobFallbackMessage('Using the synchronous difference endpoint.')
             job.reset()
+            setSelectedCandidateId(null)
             difference.mutate({
               early_cutout_fits_url: earlier.cutout_fits_url,
               late_cutout_fits_url: later.cutout_fits_url,
