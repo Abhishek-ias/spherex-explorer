@@ -24,3 +24,21 @@ describe('difference blink comparison', () => {
     expect(nextBlinkEpoch('later')).toBe('earlier')
   })
 })
+
+
+describe('optional significance map resource', () => {
+  it('returns the backend-provided significance image URL', () => {
+    expect(getSignificanceImageUrl({
+      significance_png_url: '/api/cache/significance.png',
+    })).toBe('/api/cache/significance.png')
+  })
+
+  it('does not invent a significance map when the response omits it', () => {
+    expect(getSignificanceImageUrl({
+      difference_png_url: '/api/cache/difference.png',
+    })).toBeUndefined()
+    expect(getSignificanceImageUrl(null)).toBeUndefined()
+    expect(getSignificanceImageUrl({ significance_png_url: '' })).toBeUndefined()
+    expect(getSignificanceImageUrl({ significance_png_url: 5 })).toBeUndefined()
+  })
+})

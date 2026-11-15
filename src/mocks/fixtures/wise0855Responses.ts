@@ -118,6 +118,7 @@ export const wise0855Overlays = {
 export const wise0855Difference = {
   diff_key: '8f4b21a90c3e7d12',
   difference_png_url: '/api/cache/diff_8f4b21a90c3e7d12.png',
+  significance_png_url: '/api/cache/sig_8f4b21a90c3e7d12.png',
   early_date: '2025-05-08T12:14:00.000',
   late_date: '2025-05-08T18:42:00.000',
   shape_ny_nx: [146, 146],

@@ -4,6 +4,7 @@ import { useDifferenceJob } from '@/api/hooks/useDifferenceJob'
 import type { components } from '@/api/schema'
 import SynchronizedDifferenceViewer from './SynchronizedDifferenceViewer'
 import { resolveApiAssetUrl } from '@/api/resolveApiAssetUrl'
+import { getSignificanceImageUrl } from './differenceViewerUtils'
 
 type ObservationFrame = components['schemas']['ObservationFrame']
 type Props = {
@@ -234,6 +235,9 @@ export default function DifferenceAnalysis({
             earlierUrl={resolveApiAssetUrl(earlier.preview_png_url)}
             laterUrl={resolveApiAssetUrl(later.preview_png_url)}
             differenceUrl={resolveApiAssetUrl(result.difference_png_url)}
+            significanceUrl={getSignificanceImageUrl(result)
+              ? resolveApiAssetUrl(getSignificanceImageUrl(result)!)
+              : undefined}
             shapeNyNx={result.shape_ny_nx}
             selectedCandidate={result.candidates.find(
               (candidate) => candidate.candidate_id === selectedCandidateId,
@@ -245,11 +249,12 @@ export default function DifferenceAnalysis({
             <span className="text-blue-300">Negative = earlier brighter</span>
             <span className="text-observatory-muted">Near zero = little change</span>
           </div>
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs leading-5 text-observatory-muted">
-            The current difference response does not include colour-scale limits (vmin/vmax),
-            a colour-map name, or a significance-map URL. Those controls are unavailable until
-            the backend returns those fields.
-          </div>
+          {!getSignificanceImageUrl(result) && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs leading-5 text-observatory-muted">
+              This response does not include a significance-map URL or backend colour-scale metadata.
+              Only the returned difference image is shown.
+            </div>
+          )}
 
           {result.candidates.length === 0 ? (
             <div className="rounded-xl border border-dashed border-observatory-border p-5 text-sm text-observatory-muted">

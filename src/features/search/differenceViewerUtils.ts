@@ -21,3 +21,17 @@ export type BlinkEpoch = 'earlier' | 'later'
 export function nextBlinkEpoch(current: BlinkEpoch): BlinkEpoch {
   return current === 'earlier' ? 'later' : 'earlier'
 }
+
+
+/**
+ * Read the optional v2.1 significance-map resource without changing the
+ * generated v2.0 DifferenceResponse type. Only a backend-returned URL is used.
+ */
+export function getSignificanceImageUrl(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object' || !('significance_png_url' in value)) {
+    return undefined
+  }
+
+  const url = (value as { significance_png_url?: unknown }).significance_png_url
+  return typeof url === 'string' && url.trim() ? url : undefined
+}

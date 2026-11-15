@@ -1,8 +1,4 @@
 import { z } from 'zod'
-import type { components } from '@/api/schema'
-
-type DifferenceResponse = components['schemas']['DifferenceResponse']
-
 const pixelPointSchema = z.object({
   x: z.number(),
   y: z.number(),
@@ -41,6 +37,8 @@ const differenceCandidateSchema = z.object({
 export const differenceResponseSchema = z.object({
   diff_key: z.string(),
   difference_png_url: z.string(),
+  // Optional v2.1 response extension supplied by the backend handoff.
+  significance_png_url: z.string().min(1).optional(),
   early_date: z.string(),
   late_date: z.string(),
   shape_ny_nx: z.array(z.number()),
@@ -49,7 +47,9 @@ export const differenceResponseSchema = z.object({
   candidates: z.array(differenceCandidateSchema),
 })
 
-export function parseDifferenceJobResult(value: unknown): DifferenceResponse | null {
+export type ParsedDifferenceResponse = z.infer<typeof differenceResponseSchema>
+
+export function parseDifferenceJobResult(value: unknown): ParsedDifferenceResponse | null {
   const parsed = differenceResponseSchema.safeParse(value)
   return parsed.success ? parsed.data : null
 }

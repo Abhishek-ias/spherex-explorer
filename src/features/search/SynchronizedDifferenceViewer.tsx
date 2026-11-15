@@ -10,6 +10,7 @@ type Props = {
   earlierUrl: string
   laterUrl: string
   differenceUrl: string
+  significanceUrl?: string
   shapeNyNx: number[]
   selectedCandidate?: DifferenceCandidate
 }
@@ -22,6 +23,7 @@ export default function SynchronizedDifferenceViewer({
   earlierUrl,
   laterUrl,
   differenceUrl,
+  significanceUrl,
   shapeNyNx,
   selectedCandidate,
 }: Props) {
@@ -31,6 +33,7 @@ export default function SynchronizedDifferenceViewer({
   const [blinkEpoch, setBlinkEpoch] = useState<'earlier' | 'later'>('earlier')
   const [blinkPlaying, setBlinkPlaying] = useState(true)
   const [curtainPercent, setCurtainPercent] = useState(50)
+  const [differenceLayer, setDifferenceLayer] = useState<'difference' | 'significance'>('difference')
   const [reducedMotion] = useState(() =>
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
@@ -42,7 +45,11 @@ export default function SynchronizedDifferenceViewer({
   const panels: ImagePanel[] = [
     { id: 'earlier', title: 'Earlier epoch', url: earlierUrl },
     { id: 'later', title: 'Later epoch', url: laterUrl },
-    { id: 'difference', title: 'Difference image', url: differenceUrl },
+    {
+      id: 'difference',
+      title: differenceLayer === 'significance' ? 'Significance map' : 'Difference image',
+      url: differenceLayer === 'significance' && significanceUrl ? significanceUrl : differenceUrl,
+    },
   ]
 
   useEffect(() => {
@@ -152,6 +159,40 @@ export default function SynchronizedDifferenceViewer({
           </span>
         )}
       </div>
+
+      {mode === 'panels' && significanceUrl && (
+        <div
+          role="group"
+          aria-label="Difference image layer"
+          className="flex flex-wrap items-center gap-2"
+        >
+          <span className="text-xs text-observatory-muted">Third panel:</span>
+          <button
+            type="button"
+            aria-pressed={differenceLayer === 'difference'}
+            onClick={() => setDifferenceLayer('difference')}
+            className={`rounded-lg border px-3 py-2 text-xs ${
+              differenceLayer === 'difference'
+                ? 'border-violet-400 bg-violet-500/10 text-violet-200'
+                : 'border-observatory-border text-observatory-muted'
+            }`}
+          >
+            Difference image
+          </button>
+          <button
+            type="button"
+            aria-pressed={differenceLayer === 'significance'}
+            onClick={() => setDifferenceLayer('significance')}
+            className={`rounded-lg border px-3 py-2 text-xs ${
+              differenceLayer === 'significance'
+                ? 'border-violet-400 bg-violet-500/10 text-violet-200'
+                : 'border-observatory-border text-observatory-muted'
+            }`}
+          >
+            Significance map
+          </button>
+        </div>
+      )}
 
       {mode === 'panels' && (
         <div className="grid gap-3 lg:grid-cols-3">
