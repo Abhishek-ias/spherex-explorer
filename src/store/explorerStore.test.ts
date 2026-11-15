@@ -48,6 +48,16 @@ describe('explorer Zustand UI store', () => {
     expect(useExplorerStore.getState().selectedOverlay).toBeNull()
   })
 
+  it('toggles catalogue visibility from keyboard-action store methods', () => {
+    const state = useExplorerStore.getState()
+    state.toggleGaiaVisible()
+    state.toggleWiseVisible()
+    expect(useExplorerStore.getState().gaiaVisible).toBe(true)
+    expect(useExplorerStore.getState().wiseVisible).toBe(true)
+    useExplorerStore.getState().toggleGaiaVisible()
+    expect(useExplorerStore.getState().gaiaVisible).toBe(false)
+  })
+
   it('updates Gaia and WISE visibility and opacity independently', () => {
     const current = useExplorerStore.getState()
     current.setGaiaVisible(true)

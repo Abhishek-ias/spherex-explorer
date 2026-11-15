@@ -53,8 +53,10 @@ export default function ExploreWorkspace() {
   const setSelectedOverlay = useExplorerStore((state) => state.setSelectedOverlay)
   const gaiaVisible = useExplorerStore((state) => state.gaiaVisible)
   const setGaiaVisible = useExplorerStore((state) => state.setGaiaVisible)
+  const toggleGaiaVisible = useExplorerStore((state) => state.toggleGaiaVisible)
   const wiseVisible = useExplorerStore((state) => state.wiseVisible)
   const setWiseVisible = useExplorerStore((state) => state.setWiseVisible)
+  const toggleWiseVisible = useExplorerStore((state) => state.toggleWiseVisible)
   const gaiaOpacity = useExplorerStore((state) => state.gaiaOpacity)
   const setGaiaOpacity = useExplorerStore((state) => state.setGaiaOpacity)
   const wiseOpacity = useExplorerStore((state) => state.wiseOpacity)
@@ -150,13 +152,13 @@ export default function ExploreWorkspace() {
       )) return
 
       const key = event.key.toLowerCase()
-      if (key === 'g') setGaiaVisible((visible) => !visible)
-      if (key === 'w') setWiseVisible((visible) => !visible)
+      if (key === 'g') toggleGaiaVisible()
+      if (key === 'w') toggleWiseVisible()
     }
 
     window.addEventListener('keydown', handleLayerShortcut)
     return () => window.removeEventListener('keydown', handleLayerShortcut)
-  }, [])
+  }, [toggleGaiaVisible, toggleWiseVisible])
 
   useEffect(() => {
     if (!uiStateHydrated) return

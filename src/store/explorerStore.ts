@@ -21,6 +21,8 @@ type ExplorerStore = ExplorerUrlState & {
   setTimelineBand: (band: string) => void
   setGaiaVisible: (visible: boolean) => void
   setWiseVisible: (visible: boolean) => void
+  toggleGaiaVisible: () => void
+  toggleWiseVisible: () => void
   setGaiaOpacity: (opacity: number) => void
   setWiseOpacity: (opacity: number) => void
   setSelectedOverlay: (overlay: OverlaySelection | null) => void
@@ -46,6 +48,8 @@ export const useExplorerStore = create<ExplorerStore>((set) => ({
   setTimelineBand: (timelineBand) => set({ timelineBand }),
   setGaiaVisible: (gaiaVisible) => set({ gaiaVisible }),
   setWiseVisible: (wiseVisible) => set({ wiseVisible }),
+  toggleGaiaVisible: () => set((state) => ({ gaiaVisible: !state.gaiaVisible })),
+  toggleWiseVisible: () => set((state) => ({ wiseVisible: !state.wiseVisible })),
   setGaiaOpacity: (gaiaOpacity) => set({ gaiaOpacity }),
   setWiseOpacity: (wiseOpacity) => set({ wiseOpacity }),
   setSelectedOverlay: (selectedOverlay) => set({ selectedOverlay }),
