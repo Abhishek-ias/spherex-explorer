@@ -3,6 +3,7 @@ import { wise0855Search } from './wise0855Search'
 
 type Source = components['schemas']['SourceIdentificationResponse']
 type OverlayResponse = components['schemas']['OverlayResponse']
+type BackendV21OverlayResponse = OverlayResponse & { wise_image_png_url: string }
 type DifferenceResponse = components['schemas']['DifferenceResponse']
 type BackendV21DifferenceResponse = DifferenceResponse & { significance_png_url: string }
 type IsolateResponse = components['schemas']['IsolateResponse']
@@ -48,9 +49,10 @@ export const wise0855IdentifiedSource = {
   detector: '6',
 } satisfies Source
 
-// Backend-provided POST /api/overlays sample. Extra v2.1 coverage and WISE
-// image-layer fields are omitted until the actual v2.1 OpenAPI export is supplied.
+// Backend-provided POST /api/overlays sample. The WISE raster URL is an additive
+// v2.1 field from the teammate's handoff; generated v2.0 types remain unchanged.
 export const wise0855Overlays = {
+  wise_image_png_url: '/api/cache/wise_layer_a1b2c3d4e5f67890.png',
   image_shape_ny_nx: [146, 146],
   spherex_obs_date: '2025-05-08T12:14:00.000',
   target_px: { x: 72.5, y: 72.5 },
@@ -111,7 +113,7 @@ export const wise0855Overlays = {
   },
   wiseview_url:
     'https://byw.tools/wiseview#ra=133.795129&dec=-7.245147&size=900&band=3&speed=125&minbright=-15&maxbright=120',
-} satisfies OverlayResponse
+} satisfies BackendV21OverlayResponse
 
 // Backend-provided POST /api/images/difference sample, matching the current
 // v2.0 response contract. v2.1 significance_png_url is not part of our current

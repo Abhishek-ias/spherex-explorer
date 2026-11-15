@@ -19,6 +19,8 @@ export type OverlayMarker = {
 
 type Props = {
   imageUrl: string
+  wiseImageUrl?: string
+  wiseImageOpacity?: number
   targetPx?: PixelPoint
   title: string
   overlayMarkers?: OverlayMarker[]
@@ -36,6 +38,8 @@ type ViewTransform = {
 
 export default function SkyViewer({
   imageUrl,
+  wiseImageUrl,
+  wiseImageOpacity = 1,
   targetPx,
   title,
   overlayMarkers = [],
@@ -53,6 +57,10 @@ export default function SkyViewer({
   const keyboardPoint = useRef({ x: 0.5, y: 0.5 })
   const keyboardFocus = useRef(false)
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
+  const [failedWiseImageUrl, setFailedWiseImageUrl] = useState<string | null>(null)
+  const [wiseRetryCount, setWiseRetryCount] = useState(0)
+  const wiseOpacityRef = useRef(wiseImageOpacity)
+  wiseOpacityRef.current = wiseImageOpacity
   const [canvasUnavailableUrl, setCanvasUnavailableUrl] = useState<string | null>(null)
   const imageError = Boolean(imageUrl && failedImageUrl === imageUrl)
   const canvasUnavailable = Boolean(imageUrl && canvasUnavailableUrl === imageUrl)
@@ -77,6 +85,9 @@ export default function SkyViewer({
 
     let image: HTMLImageElement | null = null
     let loaded = false
+    let wiseImage: HTMLImageElement | null = null
+    let wiseLoaded = false
+    let wiseFailed = false
     let dpr = window.devicePixelRatio || 1
 
     const draw = () => {
@@ -108,6 +119,13 @@ export default function SkyViewer({
       const y = (height - drawHeight) / 2 + view.current.y
 
       context.drawImage(image, x, y, drawWidth, drawHeight)
+
+      if (wiseLoaded && wiseImage && !wiseFailed) {
+        const previousAlpha = context.globalAlpha
+        context.globalAlpha = Math.max(0, Math.min(1, wiseOpacityRef.current))
+        context.drawImage(wiseImage, x, y, drawWidth, drawHeight)
+        context.globalAlpha = previousAlpha
+      }
 
       if (selectedObject) {
         const sx = x + selectedObject.x * scale
@@ -201,6 +219,20 @@ export default function SkyViewer({
     observer.observe(canvas)
     resize()
 
+    if (wiseImageUrl) {
+      wiseImage = new Image()
+      wiseImage.onload = () => {
+        wiseLoaded = true
+        draw()
+      }
+      wiseImage.onerror = () => {
+        wiseFailed = true
+        setFailedWiseImageUrl(wiseImageUrl)
+        draw()
+      }
+      wiseImage.src = wiseImageUrl
+    }
+
     if (imageUrl) {
       image = new Image()
       image.onload = () => {
@@ -228,7 +260,7 @@ export default function SkyViewer({
         image.onerror = null
       }
     }
-  }, [imageUrl, retryCount, targetPx, overlayMarkers, pendingSelection, selectedObject])
+  }, [imageUrl, retryCount, wiseImageUrl, wiseRetryCount, targetPx, overlayMarkers, pendingSelection, selectedObject])
 
   function zoomBy(factor: number) {
     view.current.zoom = Math.max(0.5, Math.min(8, view.current.zoom * factor))
@@ -295,6 +327,11 @@ export default function SkyViewer({
 
   function retryPreview() {
     setRetryCount((count) => count + 1)
+  }
+
+  function retryWiseImage() {
+    setFailedWiseImageUrl(null)
+    setWiseRetryCount((count) => count + 1)
   }
 
   function handleWheel(event: WheelEvent<HTMLCanvasElement>) {
@@ -464,6 +501,12 @@ export default function SkyViewer({
         <span><span className="mr-1 text-pink-400">⊕</span> Identified source</span>
         <span><span className="mr-1 text-blue-400">○</span> Gaia DR3</span>
         <span><span className="mr-1 text-amber-400">○</span> WISE</span>
+        {wiseImageUrl && failedWiseImageUrl === wiseImageUrl && (
+          <span role="status" className="basis-full flex flex-wrap items-center gap-2 text-amber-300">
+            WISE raster image unavailable; catalogue markers remain visible.
+            <button type="button" onClick={retryWiseImage} className="underline">Retry WISE image</button>
+          </span>
+        )}
         <span>Drag · Scroll to zoom · Double-click to zoom · Click to identify</span>
         <p id="sky-viewer-keyboard-help" className="basis-full text-[11px] leading-5">
           Keyboard: focus the preview, use arrow keys to move the identification cursor,

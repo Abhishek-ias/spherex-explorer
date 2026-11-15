@@ -15,6 +15,7 @@ import { searchParamsSchema } from './searchParams'
 import PanelErrorBoundary from './PanelErrorBoundary'
 import { useExplorerStore } from '@/store/explorerStore'
 import { resolveApiAssetUrl } from '@/api/resolveApiAssetUrl'
+import { getWiseImageLayerUrl } from './overlayResourceUtils'
 
 function readOpacityParameter(params: URLSearchParams, key: string): number {
   const value = params.get(key)
@@ -78,6 +79,7 @@ export default function ExploreWorkspace() {
 
   const identify = useIdentifyObject()
   const overlays = useCatalogOverlays()
+  const wiseImageLayerUrl = getWiseImageLayerUrl(overlays.data)
   const identifyAbortRef = useRef<AbortController | null>(null)
 
   const [identifyError, setIdentifyError] = useState('')
@@ -283,6 +285,7 @@ export default function ExploreWorkspace() {
       frame_cutout_urls: Object.fromEntries(
         frames.map((frame) => [frame.obs_id, frame.cutout_fits_url]),
       ),
+      include_wise_image_layer: true,
     })
   }
 
@@ -375,6 +378,8 @@ export default function ExploreWorkspace() {
           <PanelErrorBoundary panelName="Sky viewer">
             <SkyViewer
               imageUrl={resolveApiAssetUrl(selectedFrame.preview_png_url)}
+              wiseImageUrl={wiseVisible && wiseImageLayerUrl ? resolveApiAssetUrl(wiseImageLayerUrl) : undefined}
+              wiseImageOpacity={wiseOpacity / 100}
               targetPx={selectedFrame.target_px}
               title={selectedFrame.obs_id}
               onIdentify={identifyAt}
@@ -561,7 +566,7 @@ export default function ExploreWorkspace() {
                     aria-label="Show Gaia DR3 overlay" />
                 </label>
                 <label className="flex items-center justify-between text-sm">
-                  <span>WISE ({overlays.data.wise_sources.length})</span>
+                  <span>WISE ({overlays.data.wise_sources.length}){wiseImageLayerUrl ? ' + image' : ''}</span>
                   <input type="checkbox" checked={wiseVisible}
                     onChange={(event) => setWiseVisible(event.target.checked)}
                     aria-label="Show WISE overlay" />
@@ -576,7 +581,7 @@ export default function ExploreWorkspace() {
                       className="mt-2 w-full accent-blue-400 disabled:opacity-40" />
                   </label>
                   <label className="block text-xs text-observatory-muted">
-                    WISE marker opacity · {wiseOpacity}%
+                    WISE layer opacity · {wiseOpacity}%
                     <input type="range" min="10" max="100" step="5" value={wiseOpacity}
                       disabled={!wiseVisible}
                       onChange={(event) => setWiseOpacity(Number(event.target.value))}
@@ -584,6 +589,11 @@ export default function ExploreWorkspace() {
                       className="mt-2 w-full accent-amber-400 disabled:opacity-40" />
                   </label>
                 </div>
+                {wiseImageLayerUrl && (
+                  <p className="text-xs text-observatory-muted">
+                    The backend supplied a WISE raster layer. The WISE toggle and opacity control apply to both its image and source markers.
+                  </p>
+                )}
                 <div className="text-xs text-observatory-muted">
                   CSA NEOSSat observations: {overlays.data.csa_neossat_observations.length}
                 </div>
