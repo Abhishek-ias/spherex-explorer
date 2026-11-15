@@ -30,16 +30,18 @@ export const handlers = [
 
   http.post(`${API_BASE_URL}/api/search`, async ({ request }) => {
     const body = (await request.json()) as SearchRequest
+    const ra = body.ra
+    const dec = body.dec
 
     if (
-      typeof body.ra !== 'number' ||
-      typeof body.dec !== 'number' ||
-      !Number.isFinite(body.ra) ||
-      !Number.isFinite(body.dec) ||
-      body.ra < 0 ||
-      body.ra >= 360 ||
-      body.dec < -90 ||
-      body.dec > 90
+      typeof ra !== 'number' ||
+      typeof dec !== 'number' ||
+      !Number.isFinite(ra) ||
+      !Number.isFinite(dec) ||
+      ra < 0 ||
+      ra >= 360 ||
+      dec < -90 ||
+      dec > 90
     ) {
       return HttpResponse.json(
         { detail: 'Invalid right ascension or declination.' },
@@ -50,8 +52,8 @@ export const handlers = [
     // The handoff contains a verified 15-arcmin WISE 0855 sample only.
     if (
       WISE_0855 &&
-      nearlyEqual(body.ra, WISE_0855.ra_deg) &&
-      nearlyEqual(body.dec, WISE_0855.dec_deg)
+      nearlyEqual(ra, WISE_0855.ra_deg) &&
+      nearlyEqual(dec, WISE_0855.dec_deg)
     ) {
       if ((body.fov_arcmin ?? 15) !== 15) {
         return HttpResponse.json(
@@ -68,8 +70,8 @@ export const handlers = [
 
     const knownTarget = presetTargets.find(
       (target) =>
-        nearlyEqual(body.ra, target.ra_deg) &&
-        nearlyEqual(body.dec, target.dec_deg),
+        nearlyEqual(ra, target.ra_deg) &&
+        nearlyEqual(dec, target.dec_deg),
     )
 
     if (knownTarget) {
@@ -85,8 +87,8 @@ export const handlers = [
     // Generic coordinates remain an explicitly empty DEMO DATA response.
     // No synthetic observations or scientific measurements are generated.
     const response: SearchResponse = {
-      query_ra_deg: body.ra,
-      query_dec_deg: body.dec,
+      query_ra_deg: ra,
+      query_dec_deg: dec,
       fov_arcmin: body.fov_arcmin ?? 15,
       total_observations: 0,
       detectors: [],
