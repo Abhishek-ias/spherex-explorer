@@ -313,7 +313,7 @@ export default function ExploreWorkspace() {
     } else if (compareFrameId) next.set('compare', compareFrameId)
     else next.delete('compare')
 
-    if (urlDetector && requestedDetectorAvailable) next.delete('detector')
+    if (urlDetector && requestedDetectorAvailable && requestedEarlierEpochAvailable && requestedLaterEpochAvailable) next.delete('detector')
 
     if (timelineBand === 'all') next.delete('band')
     else next.set('band', timelineBand)
